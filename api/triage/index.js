@@ -1,3 +1,5 @@
+const https = require('https');
+
 module.exports = async function (context, req) {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -26,23 +28,39 @@ module.exports = async function (context, req) {
       imageCount: images?.length
     });
 
-    // TODO: Replace this with your actual AI analysis
-    // For now, return a mock response based on keywords
-    const decision = analyzeDescription(text, images);
+    // Azure OpenAI Configuration
+    const endpoint = 'https://magroupai.openai.azure.com';
+    const apiKey = process.env.AZURE_OPENAI_KEY;
+    const assistantId = 'asst_C4YWrfzcSMXYNbBtGB4c3Fi';
+    const apiVersion = '2024-05-01-preview';
 
-    const response = {
-      decision: decision.type,
-      confidence_0to1: decision.confidence,
-      reasons: decision.reasons
-    };
+    if (!apiKey) {
+      throw new Error('Azure OpenAI API key not configured');
+    }
 
+    // Call the AI Assistant
+    const aiResponse = await callMagicmanAI(
+      endpoint,
+      apiKey,
+      assistantId,
+      apiVersion,
+      text,
+      images,
+      context
+    );
+
+    // Return the AI's response
     context.res = {
       status: 200,
       headers: {
         'Content-Type': 'application/json',
         'Access-Control-Allow-Origin': '*'
       },
-      body: response
+      body: {
+        decision: aiResponse.decision,
+        confidence_0to1: aiResponse.confidence_0to1,
+        reasons: aiResponse.reasons
+      }
     };
 
   } catch (error) {
@@ -62,67 +80,176 @@ module.exports = async function (context, req) {
   }
 };
 
-// Mock AI analysis function - REPLACE THIS with your actual AI
-function analyzeDescription(text, images) {
-  const lowerText = text.toLowerCase();
-  
-  // Simple keyword-based mock analysis
-  if (lowerText.includes('small') || lowerText.includes('chip') || lowerText.includes('scratch')) {
-    return {
-      type: 'REPAIRABLE_SPOT',
-      confidence: 0.85,
-      reasons: [
-        'Small surface damage detected',
-        'Suitable for spot repair technique',
-        'Cost-effective repair option available'
-      ]
-    };
+async function callMagicmanAI(endpoint, apiKey, assistantId, apiVersion, text, images, context) {
+  try {
+    // Step 1: Create a thread
+    context.log('Creating thread...');
+    const thread = await makeRequest(
+      endpoint,
+      apiKey,
+      apiVersion,
+      'POST',
+      '/openai/threads',
+      {}
+    );
+
+    // Step 2: Add message to thread
+    context.log('Adding message to thread...');
+    
+    // Build the message content
+    const messageContent = [
+      {
+        type: 'text',
+        text: `Customer damage description: ${text}\n\nPlease analyse this damage and provide your triage decision.`
+      }
+    ];
+
+    // Add images if provided
+    if (images && images.length > 0) {
+      images.forEach((imageUrl, index) => {
+        messageContent.push({
+          type: 'image_url',
+          image_url: {
+            url: imageUrl
+          }
+        });
+      });
+    }
+
+    await makeRequest(
+      endpoint,
+      apiKey,
+      apiVersion,
+      'POST',
+      `/openai/threads/${thread.id}/messages`,
+      {
+        role: 'user',
+        content: messageContent
+      }
+    );
+
+    // Step 3: Run the assistant
+    context.log('Running assistant...');
+    const run = await makeRequest(
+      endpoint,
+      apiKey,
+      apiVersion,
+      'POST',
+      `/openai/threads/${thread.id}/runs`,
+      {
+        assistant_id: assistantId
+      }
+    );
+
+    // Step 4: Wait for completion
+    context.log('Waiting for completion...');
+    let runStatus = run;
+    let attempts = 0;
+    const maxAttempts = 30; // 30 seconds timeout
+
+    while (runStatus.status !== 'completed' && attempts < maxAttempts) {
+      await sleep(1000); // Wait 1 second
+      runStatus = await makeRequest(
+        endpoint,
+        apiKey,
+        apiVersion,
+        'GET',
+        `/openai/threads/${thread.id}/runs/${run.id}`,
+        null
+      );
+      attempts++;
+
+      if (runStatus.status === 'failed' || runStatus.status === 'cancelled' || runStatus.status === 'expired') {
+        throw new Error(`Assistant run ${runStatus.status}: ${runStatus.last_error?.message || 'Unknown error'}`);
+      }
+    }
+
+    if (runStatus.status !== 'completed') {
+      throw new Error('Assistant run timed out');
+    }
+
+    // Step 5: Get messages
+    context.log('Retrieving messages...');
+    const messages = await makeRequest(
+      endpoint,
+      apiKey,
+      apiVersion,
+      'GET',
+      `/openai/threads/${thread.id}/messages`,
+      null
+    );
+
+    // Get the assistant's response (first message)
+    const assistantMessage = messages.data.find(msg => msg.role === 'assistant');
+    if (!assistantMessage) {
+      throw new Error('No assistant response found');
+    }
+
+    // Extract the JSON response from the assistant's message
+    const responseText = assistantMessage.content[0].text.value;
+    context.log('AI Response:', responseText);
+
+    // Parse JSON from the response
+    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      throw new Error('Could not find JSON in AI response');
+    }
+
+    const aiResult = JSON.parse(jsonMatch[0]);
+    
+    return aiResult;
+
+  } catch (error) {
+    context.log.error('Error calling Magicman AI:', error);
+    throw error;
   }
-  
-  if (lowerText.includes('large') || lowerText.includes('cracked') || lowerText.includes('broken')) {
-    return {
-      type: 'REPAIRABLE_FULL_RESURFACE',
-      confidence: 0.78,
-      reasons: [
-        'Extensive damage requiring full resurface',
-        'Multiple affected areas detected',
-        'Full restoration recommended for best results'
-      ]
+}
+
+function makeRequest(endpoint, apiKey, apiVersion, method, path, body) {
+  return new Promise((resolve, reject) => {
+    const url = new URL(path, endpoint);
+    url.searchParams.append('api-version', apiVersion);
+
+    const options = {
+      method: method,
+      headers: {
+        'api-key': apiKey,
+        'Content-Type': 'application/json'
+      }
     };
-  }
-  
-  if (lowerText.includes('severe') || lowerText.includes('destroyed') || lowerText.includes('shattered')) {
-    return {
-      type: 'NCD',
-      confidence: 0.92,
-      reasons: [
-        'Severe structural damage identified',
-        'Repair costs would exceed replacement value',
-        'Replacement recommended'
-      ]
-    };
-  }
-  
-  if (images && images.length === 0) {
-    return {
-      type: 'NEEDS_MORE_INFO',
-      confidence: 0.65,
-      reasons: [
-        'Additional photos would help assessment',
-        'Unable to determine extent without visual evidence',
-        'Please provide clear images of the damage'
-      ]
-    };
-  }
-  
-  // Default response
-  return {
-    type: 'REPAIRABLE_SPOT',
-    confidence: 0.72,
-    reasons: [
-      'Standard damage pattern identified',
-      'Repair appears feasible',
-      'Technician review recommended for accurate estimate'
-    ]
-  };
+
+    const req = https.request(url, options, (res) => {
+      let data = '';
+
+      res.on('data', (chunk) => {
+        data += chunk;
+      });
+
+      res.on('end', () => {
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          try {
+            resolve(JSON.parse(data));
+          } catch (e) {
+            reject(new Error('Failed to parse response: ' + data));
+          }
+        } else {
+          reject(new Error(`API request failed with status ${res.statusCode}: ${data}`));
+        }
+      });
+    });
+
+    req.on('error', (error) => {
+      reject(error);
+    });
+
+    if (body) {
+      req.write(JSON.stringify(body));
+    }
+
+    req.end();
+  });
+}
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
