@@ -31,7 +31,7 @@ module.exports = async function (context, req) {
     // Azure OpenAI Configuration
     const endpoint = 'https://magroupai.openai.azure.com';
     const apiKey = process.env.AZURE_OPENAI_KEY;
-    const assistantId = 'asst_C4YWrfzcSMXYNbBtGB4c3Fi';
+    const assistantId = 'asst_C4YVnC4eSMXNDibjfqB4b3tF';
     const apiVersion = '2024-05-01-preview';
 
     if (!apiKey) {
