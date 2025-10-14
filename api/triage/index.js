@@ -1,4 +1,5 @@
 const https = require('https');
+const { BlobServiceClient } = require('@azure/storage-blob');
 
 module.exports = async function (context, req) {
   // Handle CORS preflight
@@ -28,6 +29,14 @@ module.exports = async function (context, req) {
       imageCount: images?.length
     });
 
+    // Upload images to Azure Blob Storage
+    let imageUrls = [];
+    if (images && images.length > 0) {
+      context.log('Uploading images to Blob Storage...');
+      imageUrls = await uploadImagesToBlob(images, context);
+      context.log('Images uploaded:', imageUrls);
+    }
+
     // Azure OpenAI Configuration
     const endpoint = 'https://magroupai.openai.azure.com';
     const apiKey = process.env.AZURE_OPENAI_KEY;
@@ -38,14 +47,14 @@ module.exports = async function (context, req) {
       throw new Error('Azure OpenAI API key not configured');
     }
 
-    // Call the AI Assistant
+    // Call the AI Assistant with uploaded image URLs
     const aiResponse = await callMagicmanAI(
       endpoint,
       apiKey,
       assistantId,
       apiVersion,
       text,
-      images,
+      imageUrls, // Send the blob storage URLs instead of base64
       context
     );
 
@@ -259,4 +268,66 @@ function makeRequest(endpoint, apiKey, apiVersion, method, path, body) {
 
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function uploadImagesToBlob(images, context) {
+  const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING;
+  
+  if (!connectionString) {
+    throw new Error('Azure Storage connection string not configured');
+  }
+
+  const blobServiceClient = BlobServiceClient.fromConnectionString(connectionString);
+  const containerName = 'customer-images';
+  const containerClient = blobServiceClient.getContainerClient(containerName);
+
+  const uploadedUrls = [];
+
+  for (let i = 0; i < images.length; i++) {
+    try {
+      const imageData = images[i];
+      
+      // Check if it's a base64 data URL or already a URL
+      if (imageData.startsWith('data:')) {
+        // Extract base64 data from data URL
+        const matches = imageData.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+        if (!matches || matches.length !== 3) {
+          context.log.warn(`Invalid image data format for image ${i}`);
+          continue;
+        }
+
+        const contentType = matches[1];
+        const base64Data = matches[2];
+        
+        // Convert base64 to buffer
+        const imageBuffer = Buffer.from(base64Data, 'base64');
+        
+        // Generate unique filename
+        const timestamp = Date.now();
+        const random = Math.random().toString(36).substring(7);
+        const extension = contentType.split('/')[1] || 'jpg';
+        const blobName = `upload-${timestamp}-${random}.${extension}`;
+        
+        // Upload to blob storage
+        const blockBlobClient = containerClient.getBlockBlobClient(blobName);
+        await blockBlobClient.upload(imageBuffer, imageBuffer.length, {
+          blobHTTPHeaders: { blobContentType: contentType }
+        });
+        
+        // Get the public URL
+        const imageUrl = blockBlobClient.url;
+        uploadedUrls.push(imageUrl);
+        
+        context.log(`Uploaded image ${i + 1}: ${blobName}`);
+      } else {
+        // Already a URL, use as-is
+        uploadedUrls.push(imageData);
+      }
+    } catch (error) {
+      context.log.error(`Error uploading image ${i}:`, error);
+      // Continue with other images even if one fails
+    }
+  }
+
+  return uploadedUrls;
 }
