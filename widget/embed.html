@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>How to Embed Marv Widget</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 40px 20px;
+      line-height: 1.6;
+    }
+    
+    h1 {
+      color: #0A3B6B;
+    }
+    
+    h2 {
+      color: #42C2FF;
+      margin-top: 32px;
+    }
+    
+    pre {
+      background: #f5f5f5;
+      padding: 16px;
+      border-radius: 8px;
+      overflow-x: auto;
+    }
+    
+    code {
+      background: #f5f5f5;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+    
+    .note {
+      background: #E6F7FF;
+      border-left: 4px solid #42C2FF;
+      padding: 16px;
+      margin: 16px 0;
+    }
+  </style>
+</head>
+<body>
+  <h1>🚀 Marv Widget Integration Guide</h1>
+  
+  <p>Add the Marv AI damage validator to your website in 3 simple steps:</p>
+
+  <h2>Step 1: Add the CSS</h2>
+  <p>Add this line to your <code>&lt;head&gt;</code> section:</p>
+  <pre><code>&lt;link rel="stylesheet" href="https://your-static-site.azurestaticapps.net/widget/marv-widget.css"&gt;</code></pre>
+
+  <h2>Step 2: Configure the API</h2>
+  <p>Add this script before the widget script (replace with your Azure Function URL):</p>
+  <pre><code>&lt;script&gt;
+  window.MARV_CONFIG = {
+    apiBase: 'https://your-function-app.azurewebsites.net'
+  };
+&lt;/script&gt;</code></pre>
+
+  <h2>Step 3: Add the Widget Script</h2>
+  <p>Add this line before the closing <code>&lt;/body&gt;</code> tag:</p>
+  <pre><code>&lt;script src="https://your-static-site.azurestaticapps.net/widget/marv-widget.js"&gt;&lt;/script&gt;</code></pre>
+
+  <h2>Complete Example</h2>
+  <pre><code>&lt;!DOCTYPE html&gt;
+&lt;html lang="en"&gt;
+&lt;head&gt;
+  &lt;meta charset="UTF-8"&gt;
+  &lt;meta name="viewport" content="width=device-width, initial-scale=1.0"&gt;
+  &lt;title&gt;My Website&lt;/title&gt;
+  
+  &lt;!-- Marv Widget CSS --&gt;
+  &lt;link rel="stylesheet" href="https://your-static-site.azurestaticapps.net/widget/marv-widget.css"&gt;
+&lt;/head&gt;
+&lt;body&gt;
+  
+  &lt;!-- Your website content --&gt;
+  &lt;h1&gt;Welcome to my website&lt;/h1&gt;
+  
+  &lt;!-- Marv Widget Configuration --&gt;
+  &lt;script&gt;
+    window.MARV_CONFIG = {
+      apiBase: 'https://your-function-app.azurewebsites.net'
+    };
+  &lt;/script&gt;
+  
+  &lt;!-- Marv Widget Script --&gt;
+  &lt;script src="https://your-static-site.azurestaticapps.net/widget/marv-widget.js"&gt;&lt;/script&gt;
+&lt;/body&gt;
+&lt;/html&gt;</code></pre>
+
+  <div class="note">
+    <strong>📝 Note:</strong> The widget will automatically appear as a floating chat bubble in the bottom-right corner of your page. No additional HTML is needed!
+  </div>
+
+  <h2>Customization Options</h2>
+  <p>You can customize the widget position by adding custom CSS:</p>
+  <pre><code>&lt;style&gt;
+  .marv-bubble {
+    bottom: 20px !important;
+    right: 20px !important;
+  }
+  
+  .marv-panel {
+    bottom: 20px !important;
+    right: 20px !important;
+  }
+&lt;/style&gt;</code></pre>
+
+  <h2>Testing</h2>
+  <p>Once integrated, you should see:</p>
+  <ul>
+    <li>✅ A blue chat bubble in the bottom-right corner</li>
+    <li>✅ Clicking opens the Marv chat panel</li>
+    <li>✅ Multi-step form for damage assessment</li>
+    <li>✅ Image upload with preview</li>
+  </ul>
+
+  <div class="note">
+    <strong>🔧 Need Help?</strong> Contact your Magicman representative for support with integration or API setup.
+  </div>
+</body>
+</html>
