@@ -33,8 +33,18 @@ module.exports = async function (context, req) {
     let imageUrls = [];
     if (images && images.length > 0) {
       context.log('Uploading images to Blob Storage...');
-      imageUrls = await uploadImagesToBlob(images, context);
-      context.log('Images uploaded:', imageUrls);
+      context.log('Number of images received:', images.length);
+      context.log('First image preview (first 100 chars):', images[0].substring(0, 100));
+      
+      try {
+        imageUrls = await uploadImagesToBlob(images, context);
+        context.log('Images uploaded successfully. URLs:', imageUrls);
+      } catch (uploadError) {
+        context.log.error('Error uploading images:', uploadError);
+        // Continue even if image upload fails - AI will analyze text only
+      }
+    } else {
+      context.log('No images provided in request');
     }
 
     // Azure OpenAI Configuration
@@ -273,19 +283,28 @@ function sleep(ms) {
 async function uploadImagesToBlob(images, context) {
   const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING;
   
+  context.log('Checking connection string...');
+  context.log('Connection string exists:', !!connectionString);
+  
   if (!connectionString) {
     throw new Error('Azure Storage connection string not configured');
   }
 
+  context.log('Initializing Blob Service Client...');
   const blobServiceClient = BlobServiceClient.fromConnectionString(connectionString);
   const containerName = 'customer-images';
   const containerClient = blobServiceClient.getContainerClient(containerName);
 
+  context.log(`Using container: ${containerName}`);
+  
   const uploadedUrls = [];
 
   for (let i = 0; i < images.length; i++) {
     try {
       const imageData = images[i];
+      
+      context.log(`Processing image ${i + 1}/${images.length}`);
+      context.log(`Image data length: ${imageData.length}`);
       
       // Check if it's a base64 data URL or already a URL
       if (imageData.startsWith('data:')) {
@@ -299,14 +318,19 @@ async function uploadImagesToBlob(images, context) {
         const contentType = matches[1];
         const base64Data = matches[2];
         
+        context.log(`Content type: ${contentType}`);
+        
         // Convert base64 to buffer
         const imageBuffer = Buffer.from(base64Data, 'base64');
+        context.log(`Image buffer size: ${imageBuffer.length} bytes`);
         
         // Generate unique filename
         const timestamp = Date.now();
         const random = Math.random().toString(36).substring(7);
         const extension = contentType.split('/')[1] || 'jpg';
         const blobName = `upload-${timestamp}-${random}.${extension}`;
+        
+        context.log(`Uploading as: ${blobName}`);
         
         // Upload to blob storage
         const blockBlobClient = containerClient.getBlockBlobClient(blobName);
@@ -318,16 +342,19 @@ async function uploadImagesToBlob(images, context) {
         const imageUrl = blockBlobClient.url;
         uploadedUrls.push(imageUrl);
         
-        context.log(`Uploaded image ${i + 1}: ${blobName}`);
+        context.log(`Successfully uploaded image ${i + 1}: ${imageUrl}`);
       } else {
         // Already a URL, use as-is
+        context.log(`Image ${i + 1} is already a URL: ${imageData.substring(0, 50)}...`);
         uploadedUrls.push(imageData);
       }
     } catch (error) {
-      context.log.error(`Error uploading image ${i}:`, error);
+      context.log.error(`Error uploading image ${i}:`, error.message);
+      context.log.error('Error stack:', error.stack);
       // Continue with other images even if one fails
     }
   }
 
+  context.log(`Total images uploaded: ${uploadedUrls.length}`);
   return uploadedUrls;
 }
