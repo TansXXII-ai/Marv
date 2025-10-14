@@ -66,6 +66,7 @@ module.exports = async function (context, req) {
   } catch (error) {
     context.log.error('Error processing triage:', error);
     
+    // Return detailed error for debugging
     context.res = {
       status: 500,
       headers: {
@@ -74,7 +75,13 @@ module.exports = async function (context, req) {
       },
       body: {
         error: 'Failed to analyse damage',
-        message: error.message
+        message: error.message,
+        stack: error.stack,
+        details: {
+          hasApiKey: !!process.env.AZURE_OPENAI_KEY,
+          endpoint: 'https://magroupai.openai.azure.com',
+          assistantId: 'asst_C4YWrfzcSMXYNbBtGB4c3Fi'
+        }
       }
     };
   }
