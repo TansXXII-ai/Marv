@@ -1,48 +1,157 @@
-# Operating System
-.DS_Store
-Thumbs.db
-desktop.ini
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Marv Widget Demo</title>
+  <link rel="stylesheet" href="widget/marv-widget.css">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
 
-# Editor directories and files
-.vscode/
-.idea/
-*.sublime-project
-*.sublime-workspace
-*.swp
-*.swo
-*~
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: linear-gradient(135deg, #0A3B6B 0%, #42C2FF 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
 
-# Dependencies
-node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-package-lock.json
-yarn.lock
+    .demo-container {
+      max-width: 800px;
+      background: white;
+      border-radius: 20px;
+      padding: 60px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      text-align: center;
+    }
 
-# Environment variables
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+    .demo-logo {
+      font-size: 48px;
+      font-weight: 700;
+      color: #0A3B6B;
+      margin-bottom: 16px;
+    }
 
-# Azure
-.azure/
-local.settings.json
+    .demo-subtitle {
+      font-size: 18px;
+      color: #42C2FF;
+      margin-bottom: 40px;
+    }
 
-# Build outputs (if using build tools later)
-dist/
-build/
+    .demo-description {
+      font-size: 16px;
+      color: #4B5563;
+      line-height: 1.6;
+      margin-bottom: 40px;
+    }
 
-# Logs
-logs/
-*.log
+    .demo-cta {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background-color: #42C2FF;
+      color: white;
+      padding: 16px 32px;
+      border-radius: 12px;
+      font-weight: 600;
+      font-size: 16px;
+      text-decoration: none;
+      transition: all 0.2s;
+      box-shadow: 0 4px 12px rgba(66, 194, 255, 0.3);
+    }
 
-# Test coverage
-coverage/
+    .demo-cta:hover {
+      background-color: #2BA3E0;
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(66, 194, 255, 0.4);
+    }
 
-# Temporary files
-tmp/
-temp/
-*.tmp
+    .demo-arrow {
+      width: 20px;
+      height: 20px;
+    }
+
+    .demo-features {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 24px;
+      margin-top: 60px;
+    }
+
+    .demo-feature {
+      padding: 24px;
+      background: #F9FAFB;
+      border-radius: 12px;
+    }
+
+    .demo-feature-icon {
+      font-size: 32px;
+      margin-bottom: 12px;
+    }
+
+    .demo-feature-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #0A3B6B;
+      margin-bottom: 8px;
+    }
+
+    .demo-feature-desc {
+      font-size: 14px;
+      color: #6B7280;
+    }
+  </style>
+</head>
+<body>
+  <div class="demo-container">
+    <div class="demo-logo">Marv</div>
+    <div class="demo-subtitle">Magicman Automated Repair Validator</div>
+    
+    <p class="demo-description">
+      Get instant AI-powered damage assessments for your surfaces. 
+      Simply describe the damage, upload photos, and receive a professional 
+      repair estimate in seconds.
+    </p>
+
+    <a href="#" class="demo-cta" onclick="document.getElementById('marv-bubble').click(); return false;">
+      Try the Widget
+      <svg class="demo-arrow" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+      </svg>
+    </a>
+
+    <div class="demo-features">
+      <div class="demo-feature">
+        <div class="demo-feature-icon">🤖</div>
+        <div class="demo-feature-title">AI-Powered</div>
+        <div class="demo-feature-desc">Advanced machine learning for accurate assessments</div>
+      </div>
+      <div class="demo-feature">
+        <div class="demo-feature-icon">⚡</div>
+        <div class="demo-feature-title">Instant Results</div>
+        <div class="demo-feature-desc">Get your estimate in seconds, not days</div>
+      </div>
+      <div class="demo-feature">
+        <div class="demo-feature-icon">📸</div>
+        <div class="demo-feature-title">Photo Analysis</div>
+        <div class="demo-feature-desc">Upload up to 9 images for detailed inspection</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Configure and initialize Marv Widget -->
+  <script>
+    // Configuration - change this to your Azure Function endpoint
+    window.MARV_CONFIG = {
+      apiBase: 'https://your-function-app.azurewebsites.net'
+    };
+  </script>
+  <script src="widget/marv-widget.js"></script>
+</body>
+</html>
