@@ -147,9 +147,9 @@
 
   <!-- Configure and initialize Marv Widget -->
   <script>
-    // Configuration - change this to your Azure Function endpoint
+    // Configuration - using relative /api path for Azure Static Web Apps
     window.MARV_CONFIG = {
-      apiBase: 'https://your-function-app.azurewebsites.net'
+      apiBase: '/api'
     };
   </script>
   <script src="widget/marv-widget.js"></script>
