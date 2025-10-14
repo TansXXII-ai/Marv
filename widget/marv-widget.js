@@ -515,7 +515,16 @@ class MarvWidget {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to analyse damage');
+        // Try to get error details from response
+        let errorData;
+        try {
+          errorData = await response.json();
+        } catch (e) {
+          errorData = { message: 'Unknown error' };
+        }
+        
+        console.error('API Error Response:', errorData);
+        throw new Error(errorData.message || `HTTP ${response.status}: Failed to analyse damage`);
       }
 
       this.result = await response.json();
