@@ -292,7 +292,7 @@ async function uploadImagesToBlob(images, context) {
 
   context.log('Initializing Blob Service Client...');
   const blobServiceClient = BlobServiceClient.fromConnectionString(connectionString);
-  const containerName = 'customer-images';
+  const containerName = 'marvimages';
   const containerClient = blobServiceClient.getContainerClient(containerName);
 
   context.log(`Using container: ${containerName}`);
