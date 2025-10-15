@@ -176,7 +176,7 @@ async function uploadImagesToBlob(images, context) {
   }
 
   const blobServiceClient = BlobServiceClient.fromConnectionString(connectionString);
-  const containerName = 'marvimages';
+  const containerName = 'marv-images';
   const containerClient = blobServiceClient.getContainerClient(containerName);
   
   const uploadedUrls = [];
