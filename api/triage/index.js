@@ -33,24 +33,21 @@ module.exports = async function (context, req) {
     const endpoint = 'https://magroupai.openai.azure.com';
     const apiKey = process.env.AZURE_OPENAI_KEY;
     const assistantId = 'asst_C4YVnC4eSMXNDibjfqB4b3tF';
-    const apiVersion = '2024-05-01-preview';
+    const apiVersion = '2024-02-15-preview';
 
     if (!apiKey) {
       throw new Error('Azure OpenAI API key not configured');
     }
 
-    // Upload images to both Blob Storage (for records) AND Azure OpenAI (for Assistant)
-    let fileIds = [];
+    // Upload images to Blob Storage and get SAS URLs
+    let imageUrls = [];
     if (formData.images && formData.images.length > 0) {
       context.log(`Processing ${formData.images.length} images...`);
       
       try {
-        // Upload to Blob Storage for records
-        await uploadImagesToBlob(formData.images, context);
-        
-        // Upload to Azure OpenAI for Assistant
-        fileIds = await uploadImagesToOpenAI(formData.images, endpoint, apiKey, apiVersion, context);
-        context.log(`Files uploaded to OpenAI. File IDs:`, fileIds);
+        // Upload to Blob Storage with SAS tokens
+        imageUrls = await uploadImagesToBlobWithSAS(formData.images, context);
+        context.log(`Images uploaded to Blob Storage. URLs ready for AI`);
       } catch (uploadError) {
         context.log.error('Error uploading images:', uploadError);
         // Continue - AI will analyze text only
@@ -59,14 +56,14 @@ module.exports = async function (context, req) {
       context.log('No images provided in request');
     }
 
-    // Call the AI Assistant with uploaded file IDs
+    // Call the AI Assistant with image URLs
     const aiResponse = await callMagicmanAI(
       endpoint,
       apiKey,
       assistantId,
       apiVersion,
       formData.text,
-      fileIds,
+      imageUrls,
       context
     );
 
@@ -114,11 +111,11 @@ async function parseMultipartFormData(req, context) {
     throw new Error('No boundary found in multipart data');
   }
   
-  const boundary = '--' + boundaryMatch[1];
+  const boundary = Buffer.from('--' + boundaryMatch[1]);
   const rawBody = req.rawBody || req.body;
   
-  // Split by boundary
-  const parts = rawBody.toString('binary').split(boundary);
+  // Ensure we have a Buffer
+  const bodyBuffer = Buffer.isBuffer(rawBody) ? rawBody : Buffer.from(rawBody);
   
   const formData = {
     name: '',
@@ -128,145 +125,121 @@ async function parseMultipartFormData(req, context) {
     images: []
   };
 
-  for (const part of parts) {
-    if (!part || part === '--\r\n' || part === '--') continue;
-
-    // Parse headers
-    const headerEnd = part.indexOf('\r\n\r\n');
-    if (headerEnd === -1) continue;
-
-    const headers = part.substring(0, headerEnd);
-    const content = part.substring(headerEnd + 4, part.length - 2);
-
-    // Extract field name
+  // Split by boundary using Buffer methods
+  let position = 0;
+  while (position < bodyBuffer.length) {
+    // Find next boundary
+    const boundaryIndex = bodyBuffer.indexOf(boundary, position);
+    if (boundaryIndex === -1) break;
+    
+    // Find end of this part (next boundary)
+    const nextBoundaryIndex = bodyBuffer.indexOf(boundary, boundaryIndex + boundary.length);
+    if (nextBoundaryIndex === -1) break;
+    
+    // Extract this part
+    const partStart = boundaryIndex + boundary.length + 2; // +2 for \r\n
+    const partEnd = nextBoundaryIndex - 2; // -2 for \r\n before boundary
+    const part = bodyBuffer.slice(partStart, partEnd);
+    
+    // Find header/body separator (\r\n\r\n)
+    const separator = Buffer.from('\r\n\r\n');
+    const separatorIndex = part.indexOf(separator);
+    if (separatorIndex === -1) {
+      position = nextBoundaryIndex;
+      continue;
+    }
+    
+    // Extract headers and content
+    const headers = part.slice(0, separatorIndex).toString('utf8');
+    const content = part.slice(separatorIndex + 4); // +4 for \r\n\r\n
+    
+    // Parse field name
     const nameMatch = headers.match(/name="([^"]+)"/);
-    if (!nameMatch) continue;
-
+    if (!nameMatch) {
+      position = nextBoundaryIndex;
+      continue;
+    }
+    
     const fieldName = nameMatch[1];
-
+    
     // Check if it's a file
     const filenameMatch = headers.match(/filename="([^"]+)"/);
     
     if (filenameMatch) {
-      // It's a file
+      // It's a file - keep as Buffer (don't convert to string!)
       const filename = filenameMatch[1];
       const contentTypeMatch = headers.match(/Content-Type: (.+)/);
       const contentType = contentTypeMatch ? contentTypeMatch[1].trim() : 'application/octet-stream';
-
-      // Convert binary string to buffer
-      const buffer = Buffer.from(content, 'binary');
       
       formData.images.push({
         filename: filename,
         contentType: contentType,
-        buffer: buffer
+        buffer: content // Pure Buffer - not converted to string!
       });
       
-      context.log(`Parsed image: ${filename}, size: ${buffer.length} bytes, type: ${contentType}`);
+      context.log(`Parsed image: ${filename}, size: ${content.length} bytes, type: ${contentType}`);
     } else {
       // It's a text field
-      formData[fieldName] = content;
+      formData[fieldName] = content.toString('utf8').trim();
     }
+    
+    position = nextBoundaryIndex;
   }
 
   return formData;
 }
 
-async function uploadImagesToBlob(images, context) {
+async function uploadImagesToBlobWithSAS(images, context) {
   const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING;
   
   if (!connectionString) {
-    context.log.warn('Azure Storage connection string not configured - skipping blob storage');
-    return [];
+    throw new Error('Azure Storage connection string not configured');
   }
 
-  try {
-    const blobServiceClient = BlobServiceClient.fromConnectionString(connectionString);
-    const containerName = 'marv-images';
-    const containerClient = blobServiceClient.getContainerClient(containerName);
-    
-    const uploadedUrls = [];
-
-    for (let i = 0; i < images.length; i++) {
-      try {
-        const image = images[i];
-        
-        // Generate unique filename
-        const timestamp = Date.now();
-        const random = Math.random().toString(36).substring(7);
-        const extension = image.filename.split('.').pop() || 'jpg';
-        const blobName = `upload-${timestamp}-${random}.${extension}`;
-        
-        // Upload to blob storage
-        const blockBlobClient = containerClient.getBlockBlobClient(blobName);
-        await blockBlobClient.upload(image.buffer, image.buffer.length, {
-          blobHTTPHeaders: { blobContentType: image.contentType }
-        });
-        
-        uploadedUrls.push(blockBlobClient.url);
-        context.log(`Saved to blob storage: ${blobName}`);
-      } catch (error) {
-        context.log.error(`Error uploading image ${i} to blob:`, error.message);
-      }
-    }
-
-    return uploadedUrls;
-  } catch (error) {
-    context.log.error('Blob storage error:', error.message);
-    return [];
-  }
-}
-
-async function uploadImagesToOpenAI(images, endpoint, apiKey, apiVersion, context) {
-  const fileIds = [];
+  const blobServiceClient = BlobServiceClient.fromConnectionString(connectionString);
+  const containerName = 'marv-images';
+  const containerClient = blobServiceClient.getContainerClient(containerName);
+  
+  const uploadedUrls = [];
 
   for (let i = 0; i < images.length; i++) {
     try {
       const image = images[i];
-      context.log(`Uploading image ${i + 1}/${images.length} to Azure OpenAI: ${image.filename}`);
-
-      // Create form data boundary
-      const boundary = `----FormBoundary${Math.random().toString(36).substring(2)}`;
       
-      // Build multipart form data manually
-      const formDataParts = [];
+      context.log(`Uploading image ${i + 1}/${images.length}: ${image.filename}`);
       
-      // Add purpose field
-      formDataParts.push(`--${boundary}\r\n`);
-      formDataParts.push(`Content-Disposition: form-data; name="purpose"\r\n\r\n`);
-      formDataParts.push(`assistants\r\n`);
+      // Generate unique filename
+      const timestamp = Date.now();
+      const random = Math.random().toString(36).substring(7);
+      const extension = image.filename.split('.').pop() || 'jpg';
+      const blobName = `upload-${timestamp}-${random}.${extension}`;
       
-      // Add file field
-      formDataParts.push(`--${boundary}\r\n`);
-      formDataParts.push(`Content-Disposition: form-data; name="file"; filename="${image.filename}"\r\n`);
-      formDataParts.push(`Content-Type: ${image.contentType}\r\n\r\n`);
+      // Upload to blob storage
+      const blockBlobClient = containerClient.getBlockBlobClient(blobName);
+      await blockBlobClient.upload(image.buffer, image.buffer.length, {
+        blobHTTPHeaders: { blobContentType: image.contentType }
+      });
       
-      // Combine parts
-      const header = Buffer.from(formDataParts.join(''), 'utf8');
-      const footer = Buffer.from(`\r\n--${boundary}--\r\n`, 'utf8');
-      const body = Buffer.concat([header, image.buffer, footer]);
-
-      // Upload file to Azure OpenAI
-      const fileResponse = await makeFileUploadRequest(
-        endpoint,
-        apiKey,
-        apiVersion,
-        body,
-        boundary
-      );
-
-      fileIds.push(fileResponse.id);
-      context.log(`File uploaded successfully. ID: ${fileResponse.id}`);
+      // Generate SAS token with read permissions (valid for 24 hours)
+      const sasUrl = await blockBlobClient.generateSasUrl({
+        permissions: 'r',
+        expiresOn: new Date(Date.now() + 24 * 60 * 60 * 1000)
+      });
+      
+      uploadedUrls.push(sasUrl);
+      
+      context.log(`Successfully uploaded: ${blobName}`);
     } catch (error) {
-      context.log.error(`Error uploading image ${i} to OpenAI:`, error.message);
-      // Continue with other images
+      context.log.error(`Error uploading image ${i}:`, error.message);
+      // Continue with other images even if one fails
     }
   }
 
-  return fileIds;
+  context.log(`Total images uploaded: ${uploadedUrls.length}`);
+  return uploadedUrls;
 }
 
-async function callMagicmanAI(endpoint, apiKey, assistantId, apiVersion, text, fileIds, context) {
+async function callMagicmanAI(endpoint, apiKey, assistantId, apiVersion, text, imageUrls, context) {
   try {
     // Step 1: Create a thread
     context.log('Creating thread...');
@@ -290,17 +263,17 @@ async function callMagicmanAI(endpoint, apiKey, assistantId, apiVersion, text, f
       }
     ];
 
-    // Add images as image_file content
-    if (fileIds && fileIds.length > 0) {
-      fileIds.forEach(fileId => {
+    // Add images as image_url content (using Blob Storage SAS URLs)
+    if (imageUrls && imageUrls.length > 0) {
+      imageUrls.forEach(imageUrl => {
         messageContent.push({
-          type: 'image_file',
-          image_file: {
-            file_id: fileId
+          type: 'image_url',
+          image_url: {
+            url: imageUrl
           }
         });
       });
-      context.log(`Adding ${fileIds.length} images to message`);
+      context.log(`Adding ${imageUrls.length} images to message`);
     }
 
     await makeRequest(
@@ -396,49 +369,6 @@ async function callMagicmanAI(endpoint, apiKey, assistantId, apiVersion, text, f
     context.log.error('Error calling Magicman AI:', error);
     throw error;
   }
-}
-
-function makeFileUploadRequest(endpoint, apiKey, apiVersion, body, boundary) {
-  return new Promise((resolve, reject) => {
-    const url = new URL('/openai/files', endpoint);
-    url.searchParams.append('api-version', apiVersion);
-
-    const options = {
-      method: 'POST',
-      headers: {
-        'api-key': apiKey,
-        'Content-Type': `multipart/form-data; boundary=${boundary}`,
-        'Content-Length': body.length
-      }
-    };
-
-    const req = https.request(url, options, (res) => {
-      let data = '';
-
-      res.on('data', (chunk) => {
-        data += chunk;
-      });
-
-      res.on('end', () => {
-        if (res.statusCode >= 200 && res.statusCode < 300) {
-          try {
-            resolve(JSON.parse(data));
-          } catch (e) {
-            reject(new Error('Failed to parse file upload response: ' + data));
-          }
-        } else {
-          reject(new Error(`File upload failed with status ${res.statusCode}: ${data}`));
-        }
-      });
-    });
-
-    req.on('error', (error) => {
-      reject(error);
-    });
-
-    req.write(body);
-    req.end();
-  });
 }
 
 function makeRequest(endpoint, apiKey, apiVersion, method, path, body) {
