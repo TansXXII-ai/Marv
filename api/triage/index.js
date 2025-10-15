@@ -234,7 +234,7 @@ async function uploadImagesToOpenAI(images, endpoint, apiKey, apiVersion, contex
       // Add purpose field
       formDataParts.push(`--${boundary}\r\n`);
       formDataParts.push(`Content-Disposition: form-data; name="purpose"\r\n\r\n`);
-      formDataParts.push(`vision\r\n`);
+      formDataParts.push(`assistants\r\n`);
       
       // Add file field
       formDataParts.push(`--${boundary}\r\n`);
