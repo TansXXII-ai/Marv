@@ -34,7 +34,6 @@ class MarvWidget {
   }
 
   createWidget() {
-    // Create container
     const container = document.createElement('div');
     container.id = 'marv-widget-container';
     container.innerHTML = `
@@ -89,16 +88,9 @@ class MarvWidget {
   }
 
   attachEventListeners() {
-    // Bubble click
     document.getElementById('marv-bubble').addEventListener('click', () => this.open());
-    
-    // Close button
     document.getElementById('marv-close').addEventListener('click', () => this.close());
-    
-    // Continue button
     document.getElementById('marv-continue').addEventListener('click', () => this.handleContinue());
-    
-    // Back button
     document.getElementById('marv-back').addEventListener('click', () => this.handleBack());
   }
 
@@ -213,7 +205,6 @@ class MarvWidget {
         break;
     }
 
-    // Attach input handlers
     this.attachInputHandlers();
   }
 
@@ -471,9 +462,8 @@ class MarvWidget {
       const reader = new FileReader();
       reader.onload = (event) => {
         this.formData.images.push({
-          file: file,
-          preview: event.target.result,
-          url: event.target.result // TODO: Replace with actual Azure Blob Storage URL
+          file: file, // Keep the actual File object for multipart upload
+          preview: event.target.result // For display only
         });
         this.renderStep();
       };
@@ -495,27 +485,24 @@ class MarvWidget {
     document.getElementById('marv-progress').classList.add('marv-hidden');
 
     try {
-      // TODO: Upload images to Azure Blob Storage first
-      const imageUrls = this.formData.images.map(img => img.url);
+      // Build FormData for multipart upload
+      const formData = new FormData();
+      formData.append('name', this.formData.name);
+      formData.append('email', this.formData.email);
+      formData.append('postcode', this.formData.postcode);
+      formData.append('text', this.formData.description);
 
-      const payload = {
-        text: this.formData.description,
-        images: imageUrls,
-        name: this.formData.name,
-        email: this.formData.email,
-        postcode: this.formData.postcode
-      };
+      // Add all image files
+      this.formData.images.forEach((img, index) => {
+        formData.append('images', img.file, img.file.name);
+      });
 
       const response = await fetch(`${this.apiBase}/triage`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload)
+        body: formData // Don't set Content-Type - browser will set it with boundary
       });
 
       if (!response.ok) {
-        // Try to get error details from response
         let errorData;
         try {
           errorData = await response.json();
