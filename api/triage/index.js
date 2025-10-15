@@ -199,11 +199,15 @@ async function uploadImagesToBlob(images, context) {
         blobHTTPHeaders: { blobContentType: image.contentType }
       });
       
-      // Get the public URL
-      const imageUrl = blockBlobClient.url;
-      uploadedUrls.push(imageUrl);
+      // Generate SAS token with read permissions (valid for 24 hours)
+      const sasToken = await blockBlobClient.generateSasUrl({
+        permissions: 'r', // Read permission
+        expiresOn: new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours from now
+      });
       
-      context.log(`Successfully uploaded: ${imageUrl}`);
+      uploadedUrls.push(sasToken);
+      
+      context.log(`Successfully uploaded with SAS: ${sasToken.substring(0, 100)}...`);
     } catch (error) {
       context.log.error(`Error uploading image ${i}:`, error.message);
       // Continue with other images even if one fails
