@@ -349,8 +349,11 @@ async function callMagicmanAI(endpoint, apiKey, assistantId, apiVersion, text, f
       context.log(`Run status: ${runStatus.status} (attempt ${attempts}/${maxAttempts})`);
 
       if (runStatus.status === 'failed' || runStatus.status === 'cancelled' || runStatus.status === 'expired') {
+        // Log the full run status for debugging
+        context.log.error('Run failed. Full status object:', JSON.stringify(runStatus, null, 2));
         const errorMessage = runStatus.last_error?.message || 'Unknown error';
-        context.log.error('Assistant run failed:', errorMessage);
+        const errorCode = runStatus.last_error?.code || 'unknown_error';
+        context.log.error(`Assistant run ${runStatus.status}: [${errorCode}] ${errorMessage}`);
         throw new Error(`Assistant run ${runStatus.status}: ${errorMessage}`);
       }
     }
