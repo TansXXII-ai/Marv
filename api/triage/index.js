@@ -29,22 +29,6 @@ module.exports = async function (context, req) {
       imageCount: formData.images?.length
     });
 
-    // Upload images to Azure Blob Storage
-    let imageUrls = [];
-    if (formData.images && formData.images.length > 0) {
-      context.log(`Uploading ${formData.images.length} images to Blob Storage...`);
-      
-      try {
-        imageUrls = await uploadImagesToBlob(formData.images, context);
-        context.log('Images uploaded successfully. URLs:', imageUrls);
-      } catch (uploadError) {
-        context.log.error('Error uploading images:', uploadError);
-        // Continue even if image upload fails - AI will analyze text only
-      }
-    } else {
-      context.log('No images provided in request');
-    }
-
     // Azure OpenAI Configuration
     const endpoint = 'https://magroupai.openai.azure.com';
     const apiKey = process.env.AZURE_OPENAI_KEY;
@@ -55,14 +39,34 @@ module.exports = async function (context, req) {
       throw new Error('Azure OpenAI API key not configured');
     }
 
-    // Call the AI Assistant with uploaded image URLs
+    // Upload images to both Blob Storage (for records) AND Azure OpenAI (for Assistant)
+    let fileIds = [];
+    if (formData.images && formData.images.length > 0) {
+      context.log(`Processing ${formData.images.length} images...`);
+      
+      try {
+        // Upload to Blob Storage for records
+        await uploadImagesToBlob(formData.images, context);
+        
+        // Upload to Azure OpenAI for Assistant
+        fileIds = await uploadImagesToOpenAI(formData.images, endpoint, apiKey, apiVersion, context);
+        context.log(`Files uploaded to OpenAI. File IDs:`, fileIds);
+      } catch (uploadError) {
+        context.log.error('Error uploading images:', uploadError);
+        // Continue - AI will analyze text only
+      }
+    } else {
+      context.log('No images provided in request');
+    }
+
+    // Call the AI Assistant with uploaded file IDs
     const aiResponse = await callMagicmanAI(
       endpoint,
       apiKey,
       assistantId,
       apiVersion,
       formData.text,
-      imageUrls,
+      fileIds,
       context
     );
 
@@ -132,7 +136,7 @@ async function parseMultipartFormData(req, context) {
     if (headerEnd === -1) continue;
 
     const headers = part.substring(0, headerEnd);
-    const content = part.substring(headerEnd + 4, part.length - 2); // Remove trailing \r\n
+    const content = part.substring(headerEnd + 4, part.length - 2);
 
     // Extract field name
     const nameMatch = headers.match(/name="([^"]+)"/);
@@ -172,53 +176,97 @@ async function uploadImagesToBlob(images, context) {
   const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING;
   
   if (!connectionString) {
-    throw new Error('Azure Storage connection string not configured');
+    context.log.warn('Azure Storage connection string not configured - skipping blob storage');
+    return [];
   }
 
-  const blobServiceClient = BlobServiceClient.fromConnectionString(connectionString);
-  const containerName = 'marv-images';
-  const containerClient = blobServiceClient.getContainerClient(containerName);
-  
-  const uploadedUrls = [];
+  try {
+    const blobServiceClient = BlobServiceClient.fromConnectionString(connectionString);
+    const containerName = 'marv-images';
+    const containerClient = blobServiceClient.getContainerClient(containerName);
+    
+    const uploadedUrls = [];
+
+    for (let i = 0; i < images.length; i++) {
+      try {
+        const image = images[i];
+        
+        // Generate unique filename
+        const timestamp = Date.now();
+        const random = Math.random().toString(36).substring(7);
+        const extension = image.filename.split('.').pop() || 'jpg';
+        const blobName = `upload-${timestamp}-${random}.${extension}`;
+        
+        // Upload to blob storage
+        const blockBlobClient = containerClient.getBlockBlobClient(blobName);
+        await blockBlobClient.upload(image.buffer, image.buffer.length, {
+          blobHTTPHeaders: { blobContentType: image.contentType }
+        });
+        
+        uploadedUrls.push(blockBlobClient.url);
+        context.log(`Saved to blob storage: ${blobName}`);
+      } catch (error) {
+        context.log.error(`Error uploading image ${i} to blob:`, error.message);
+      }
+    }
+
+    return uploadedUrls;
+  } catch (error) {
+    context.log.error('Blob storage error:', error.message);
+    return [];
+  }
+}
+
+async function uploadImagesToOpenAI(images, endpoint, apiKey, apiVersion, context) {
+  const fileIds = [];
 
   for (let i = 0; i < images.length; i++) {
     try {
       const image = images[i];
+      context.log(`Uploading image ${i + 1}/${images.length} to Azure OpenAI: ${image.filename}`);
+
+      // Create form data boundary
+      const boundary = `----FormBoundary${Math.random().toString(36).substring(2)}`;
       
-      context.log(`Uploading image ${i + 1}/${images.length}: ${image.filename}`);
+      // Build multipart form data manually
+      const formDataParts = [];
       
-      // Generate unique filename
-      const timestamp = Date.now();
-      const random = Math.random().toString(36).substring(7);
-      const extension = image.filename.split('.').pop() || 'jpg';
-      const blobName = `upload-${timestamp}-${random}.${extension}`;
+      // Add purpose field
+      formDataParts.push(`--${boundary}\r\n`);
+      formDataParts.push(`Content-Disposition: form-data; name="purpose"\r\n\r\n`);
+      formDataParts.push(`vision\r\n`);
       
-      // Upload to blob storage
-      const blockBlobClient = containerClient.getBlockBlobClient(blobName);
-      await blockBlobClient.upload(image.buffer, image.buffer.length, {
-        blobHTTPHeaders: { blobContentType: image.contentType }
-      });
+      // Add file field
+      formDataParts.push(`--${boundary}\r\n`);
+      formDataParts.push(`Content-Disposition: form-data; name="file"; filename="${image.filename}"\r\n`);
+      formDataParts.push(`Content-Type: ${image.contentType}\r\n\r\n`);
       
-      // Generate SAS token with read permissions (valid for 24 hours)
-      const sasToken = await blockBlobClient.generateSasUrl({
-        permissions: 'r', // Read permission
-        expiresOn: new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours from now
-      });
-      
-      uploadedUrls.push(sasToken);
-      
-      context.log(`Successfully uploaded with SAS: ${sasToken.substring(0, 100)}...`);
+      // Combine parts
+      const header = Buffer.from(formDataParts.join(''), 'utf8');
+      const footer = Buffer.from(`\r\n--${boundary}--\r\n`, 'utf8');
+      const body = Buffer.concat([header, image.buffer, footer]);
+
+      // Upload file to Azure OpenAI
+      const fileResponse = await makeFileUploadRequest(
+        endpoint,
+        apiKey,
+        apiVersion,
+        body,
+        boundary
+      );
+
+      fileIds.push(fileResponse.id);
+      context.log(`File uploaded successfully. ID: ${fileResponse.id}`);
     } catch (error) {
-      context.log.error(`Error uploading image ${i}:`, error.message);
-      // Continue with other images even if one fails
+      context.log.error(`Error uploading image ${i} to OpenAI:`, error.message);
+      // Continue with other images
     }
   }
 
-  context.log(`Total images uploaded: ${uploadedUrls.length}`);
-  return uploadedUrls;
+  return fileIds;
 }
 
-async function callMagicmanAI(endpoint, apiKey, assistantId, apiVersion, text, images, context) {
+async function callMagicmanAI(endpoint, apiKey, assistantId, apiVersion, text, fileIds, context) {
   try {
     // Step 1: Create a thread
     context.log('Creating thread...');
@@ -231,27 +279,22 @@ async function callMagicmanAI(endpoint, apiKey, assistantId, apiVersion, text, i
       {}
     );
 
-    // Step 2: Add message to thread
+    // Step 2: Add message to thread with file attachments
     context.log('Adding message to thread...');
     
-    // Build the message content
-    const messageContent = [
-      {
-        type: 'text',
-        text: `Customer damage description: ${text}\n\nPlease analyse this damage and provide your triage decision.`
-      }
-    ];
+    // Build message with text and file attachments
+    const messagePayload = {
+      role: 'user',
+      content: `Customer damage description: ${text}\n\nPlease analyse this damage and provide your triage decision.`
+    };
 
-    // Add images if provided
-    if (images && images.length > 0) {
-      images.forEach((imageUrl, index) => {
-        messageContent.push({
-          type: 'image_url',
-          image_url: {
-            url: imageUrl
-          }
-        });
-      });
+    // Add file attachments if provided
+    if (fileIds && fileIds.length > 0) {
+      messagePayload.attachments = fileIds.map(fileId => ({
+        file_id: fileId,
+        tools: [{ type: 'file_search' }]
+      }));
+      context.log(`Attaching ${fileIds.length} files to message`);
     }
 
     await makeRequest(
@@ -260,10 +303,7 @@ async function callMagicmanAI(endpoint, apiKey, assistantId, apiVersion, text, i
       apiVersion,
       'POST',
       `/openai/threads/${thread.id}/messages`,
-      {
-        role: 'user',
-        content: messageContent
-      }
+      messagePayload
     );
 
     // Step 3: Run the assistant
@@ -283,7 +323,7 @@ async function callMagicmanAI(endpoint, apiKey, assistantId, apiVersion, text, i
     context.log('Waiting for completion...');
     let runStatus = run;
     let attempts = 0;
-    const maxAttempts = 30;
+    const maxAttempts = 60; // Increased timeout for image processing
 
     while (runStatus.status !== 'completed' && attempts < maxAttempts) {
       await sleep(1000);
@@ -297,8 +337,12 @@ async function callMagicmanAI(endpoint, apiKey, assistantId, apiVersion, text, i
       );
       attempts++;
 
+      context.log(`Run status: ${runStatus.status} (attempt ${attempts}/${maxAttempts})`);
+
       if (runStatus.status === 'failed' || runStatus.status === 'cancelled' || runStatus.status === 'expired') {
-        throw new Error(`Assistant run ${runStatus.status}: ${runStatus.last_error?.message || 'Unknown error'}`);
+        const errorMessage = runStatus.last_error?.message || 'Unknown error';
+        context.log.error('Assistant run failed:', errorMessage);
+        throw new Error(`Assistant run ${runStatus.status}: ${errorMessage}`);
       }
     }
 
@@ -340,6 +384,49 @@ async function callMagicmanAI(endpoint, apiKey, assistantId, apiVersion, text, i
     context.log.error('Error calling Magicman AI:', error);
     throw error;
   }
+}
+
+function makeFileUploadRequest(endpoint, apiKey, apiVersion, body, boundary) {
+  return new Promise((resolve, reject) => {
+    const url = new URL('/openai/files', endpoint);
+    url.searchParams.append('api-version', apiVersion);
+
+    const options = {
+      method: 'POST',
+      headers: {
+        'api-key': apiKey,
+        'Content-Type': `multipart/form-data; boundary=${boundary}`,
+        'Content-Length': body.length
+      }
+    };
+
+    const req = https.request(url, options, (res) => {
+      let data = '';
+
+      res.on('data', (chunk) => {
+        data += chunk;
+      });
+
+      res.on('end', () => {
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          try {
+            resolve(JSON.parse(data));
+          } catch (e) {
+            reject(new Error('Failed to parse file upload response: ' + data));
+          }
+        } else {
+          reject(new Error(`File upload failed with status ${res.statusCode}: ${data}`));
+        }
+      });
+    });
+
+    req.on('error', (error) => {
+      reject(error);
+    });
+
+    req.write(body);
+    req.end();
+  });
 }
 
 function makeRequest(endpoint, apiKey, apiVersion, method, path, body) {
