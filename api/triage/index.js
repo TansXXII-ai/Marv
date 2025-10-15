@@ -305,7 +305,11 @@ async function uploadImagesToBlob(images, context) {
       
       context.log(`Processing image ${i + 1}/${images.length}`);
       context.log(`Image data length: ${imageData.length}`);
-      
+     
+      // ADD THESE NEW LINES:
+      context.log(`Image data starts with "data:": ${imageData.startsWith('data:')}`);
+      context.log(`Full image data preview (first 200 chars): ${imageData.substring(0, 200)}`);
+     
       // Check if it's a base64 data URL or already a URL
       if (imageData.startsWith('data:')) {
         // Extract base64 data from data URL
