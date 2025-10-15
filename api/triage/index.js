@@ -1,6 +1,6 @@
 const https = require('https');
 const { BlobServiceClient } = require('@azure/storage-blob');
-const { parse } = require('querystring');
+const Busboy = require('busboy');
 
 module.exports = async function (context, req) {
   // Handle CORS preflight
