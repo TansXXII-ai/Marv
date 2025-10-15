@@ -279,22 +279,28 @@ async function callMagicmanAI(endpoint, apiKey, assistantId, apiVersion, text, f
       {}
     );
 
-    // Step 2: Add message to thread with file attachments
+    // Step 2: Add message to thread with images
     context.log('Adding message to thread...');
     
-    // Build message with text and file attachments
-    const messagePayload = {
-      role: 'user',
-      content: `Customer damage description: ${text}\n\nPlease analyse this damage and provide your triage decision.`
-    };
+    // Build message content with text and images
+    const messageContent = [
+      {
+        type: 'text',
+        text: `Customer damage description: ${text}\n\nPlease analyse this damage and provide your triage decision.`
+      }
+    ];
 
-    // Add file attachments if provided
+    // Add images as image_file content
     if (fileIds && fileIds.length > 0) {
-      messagePayload.attachments = fileIds.map(fileId => ({
-        file_id: fileId,
-        tools: [{ type: 'file_search' }]
-      }));
-      context.log(`Attaching ${fileIds.length} files to message`);
+      fileIds.forEach(fileId => {
+        messageContent.push({
+          type: 'image_file',
+          image_file: {
+            file_id: fileId
+          }
+        });
+      });
+      context.log(`Adding ${fileIds.length} images to message`);
     }
 
     await makeRequest(
@@ -303,7 +309,10 @@ async function callMagicmanAI(endpoint, apiKey, assistantId, apiVersion, text, f
       apiVersion,
       'POST',
       `/openai/threads/${thread.id}/messages`,
-      messagePayload
+      {
+        role: 'user',
+        content: messageContent
+      }
     );
 
     // Step 3: Run the assistant
