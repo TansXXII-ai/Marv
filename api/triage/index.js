@@ -1,5 +1,6 @@
 const https = require('https');
 const { BlobServiceClient } = require('@azure/storage-blob');
+const { parse } = require('querystring');
 
 module.exports = async function (context, req) {
   // Handle CORS preflight
@@ -17,27 +18,24 @@ module.exports = async function (context, req) {
   }
 
   try {
-    // Get the form data from the request
-    const { text, images, name, email, postcode } = req.body;
-
-    // Log received data (for debugging)
-    context.log('Triage request received:', {
-      name,
-      email,
-      postcode,
-      descriptionLength: text?.length,
-      imageCount: images?.length
+    // Parse multipart form data
+    const formData = await parseMultipartFormData(req, context);
+    
+    context.log('Form data parsed:', {
+      name: formData.name,
+      email: formData.email,
+      postcode: formData.postcode,
+      descriptionLength: formData.text?.length,
+      imageCount: formData.images?.length
     });
 
     // Upload images to Azure Blob Storage
     let imageUrls = [];
-    if (images && images.length > 0) {
-      context.log('Uploading images to Blob Storage...');
-      context.log('Number of images received:', images.length);
-      context.log('First image preview (first 100 chars):', images[0].substring(0, 100));
+    if (formData.images && formData.images.length > 0) {
+      context.log(`Uploading ${formData.images.length} images to Blob Storage...`);
       
       try {
-        imageUrls = await uploadImagesToBlob(images, context);
+        imageUrls = await uploadImagesToBlob(formData.images, context);
         context.log('Images uploaded successfully. URLs:', imageUrls);
       } catch (uploadError) {
         context.log.error('Error uploading images:', uploadError);
@@ -63,8 +61,8 @@ module.exports = async function (context, req) {
       apiKey,
       assistantId,
       apiVersion,
-      text,
-      imageUrls, // Send the blob storage URLs instead of base64
+      formData.text,
+      imageUrls,
       context
     );
 
@@ -85,7 +83,6 @@ module.exports = async function (context, req) {
   } catch (error) {
     context.log.error('Error processing triage:', error);
     
-    // Return detailed error for debugging
     context.res = {
       status: 500,
       headers: {
@@ -94,17 +91,128 @@ module.exports = async function (context, req) {
       },
       body: {
         error: 'Failed to analyse damage',
-        message: error.message,
-        stack: error.stack,
-        details: {
-          hasApiKey: !!process.env.AZURE_OPENAI_KEY,
-          endpoint: 'https://magroupai.openai.azure.com',
-          assistantId: 'asst_C4YWrfzcSMXYNbBtGB4c3Fi'
-        }
+        message: error.message
       }
     };
   }
 };
+
+async function parseMultipartFormData(req, context) {
+  const contentType = req.headers['content-type'] || '';
+  
+  if (!contentType.includes('multipart/form-data')) {
+    throw new Error('Content-Type must be multipart/form-data');
+  }
+
+  // Extract boundary from content-type
+  const boundaryMatch = contentType.match(/boundary=(.+)$/);
+  if (!boundaryMatch) {
+    throw new Error('No boundary found in multipart data');
+  }
+  
+  const boundary = '--' + boundaryMatch[1];
+  const rawBody = req.rawBody || req.body;
+  
+  // Split by boundary
+  const parts = rawBody.toString('binary').split(boundary);
+  
+  const formData = {
+    name: '',
+    email: '',
+    postcode: '',
+    text: '',
+    images: []
+  };
+
+  for (const part of parts) {
+    if (!part || part === '--\r\n' || part === '--') continue;
+
+    // Parse headers
+    const headerEnd = part.indexOf('\r\n\r\n');
+    if (headerEnd === -1) continue;
+
+    const headers = part.substring(0, headerEnd);
+    const content = part.substring(headerEnd + 4, part.length - 2); // Remove trailing \r\n
+
+    // Extract field name
+    const nameMatch = headers.match(/name="([^"]+)"/);
+    if (!nameMatch) continue;
+
+    const fieldName = nameMatch[1];
+
+    // Check if it's a file
+    const filenameMatch = headers.match(/filename="([^"]+)"/);
+    
+    if (filenameMatch) {
+      // It's a file
+      const filename = filenameMatch[1];
+      const contentTypeMatch = headers.match(/Content-Type: (.+)/);
+      const contentType = contentTypeMatch ? contentTypeMatch[1].trim() : 'application/octet-stream';
+
+      // Convert binary string to buffer
+      const buffer = Buffer.from(content, 'binary');
+      
+      formData.images.push({
+        filename: filename,
+        contentType: contentType,
+        buffer: buffer
+      });
+      
+      context.log(`Parsed image: ${filename}, size: ${buffer.length} bytes, type: ${contentType}`);
+    } else {
+      // It's a text field
+      formData[fieldName] = content;
+    }
+  }
+
+  return formData;
+}
+
+async function uploadImagesToBlob(images, context) {
+  const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING;
+  
+  if (!connectionString) {
+    throw new Error('Azure Storage connection string not configured');
+  }
+
+  const blobServiceClient = BlobServiceClient.fromConnectionString(connectionString);
+  const containerName = 'marvimages';
+  const containerClient = blobServiceClient.getContainerClient(containerName);
+  
+  const uploadedUrls = [];
+
+  for (let i = 0; i < images.length; i++) {
+    try {
+      const image = images[i];
+      
+      context.log(`Uploading image ${i + 1}/${images.length}: ${image.filename}`);
+      
+      // Generate unique filename
+      const timestamp = Date.now();
+      const random = Math.random().toString(36).substring(7);
+      const extension = image.filename.split('.').pop() || 'jpg';
+      const blobName = `upload-${timestamp}-${random}.${extension}`;
+      
+      // Upload to blob storage
+      const blockBlobClient = containerClient.getBlockBlobClient(blobName);
+      await blockBlobClient.upload(image.buffer, image.buffer.length, {
+        blobHTTPHeaders: { blobContentType: image.contentType }
+      });
+      
+      // Get the public URL
+      const imageUrl = blockBlobClient.url;
+      uploadedUrls.push(imageUrl);
+      
+      context.log(`Successfully uploaded: ${imageUrl}`);
+    } catch (error) {
+      context.log.error(`Error uploading image ${i}:`, error.message);
+      // Continue with other images even if one fails
+    }
+  }
+
+  context.log(`Total images uploaded: ${uploadedUrls.length}`);
+  return uploadedUrls;
+}
 
 async function callMagicmanAI(endpoint, apiKey, assistantId, apiVersion, text, images, context) {
   try {
@@ -171,10 +279,10 @@ async function callMagicmanAI(endpoint, apiKey, assistantId, apiVersion, text, i
     context.log('Waiting for completion...');
     let runStatus = run;
     let attempts = 0;
-    const maxAttempts = 30; // 30 seconds timeout
+    const maxAttempts = 30;
 
     while (runStatus.status !== 'completed' && attempts < maxAttempts) {
-      await sleep(1000); // Wait 1 second
+      await sleep(1000);
       runStatus = await makeRequest(
         endpoint,
         apiKey,
@@ -205,13 +313,12 @@ async function callMagicmanAI(endpoint, apiKey, assistantId, apiVersion, text, i
       null
     );
 
-    // Get the assistant's response (first message)
+    // Get the assistant's response
     const assistantMessage = messages.data.find(msg => msg.role === 'assistant');
     if (!assistantMessage) {
       throw new Error('No assistant response found');
     }
 
-    // Extract the JSON response from the assistant's message
     const responseText = assistantMessage.content[0].text.value;
     context.log('AI Response:', responseText);
 
@@ -278,87 +385,4 @@ function makeRequest(endpoint, apiKey, apiVersion, method, path, body) {
 
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-async function uploadImagesToBlob(images, context) {
-  const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING;
-  
-  context.log('Checking connection string...');
-  context.log('Connection string exists:', !!connectionString);
-  
-  if (!connectionString) {
-    throw new Error('Azure Storage connection string not configured');
-  }
-
-  context.log('Initializing Blob Service Client...');
-  const blobServiceClient = BlobServiceClient.fromConnectionString(connectionString);
-  const containerName = 'marvimages';
-  const containerClient = blobServiceClient.getContainerClient(containerName);
-
-  context.log(`Using container: ${containerName}`);
-  
-  const uploadedUrls = [];
-
-  for (let i = 0; i < images.length; i++) {
-    try {
-      const imageData = images[i];
-      
-      context.log(`Processing image ${i + 1}/${images.length}`);
-      context.log(`Image data length: ${imageData.length}`);
-     
-      // ADD THESE NEW LINES:
-      context.log(`Image data starts with "data:": ${imageData.startsWith('data:')}`);
-      context.log(`Full image data preview (first 200 chars): ${imageData.substring(0, 200)}`);
-     
-      // Check if it's a base64 data URL or already a URL
-      if (imageData.startsWith('data:')) {
-        // Extract base64 data from data URL
-        const matches = imageData.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
-        if (!matches || matches.length !== 3) {
-          context.log.warn(`Invalid image data format for image ${i}`);
-          continue;
-        }
-
-        const contentType = matches[1];
-        const base64Data = matches[2];
-        
-        context.log(`Content type: ${contentType}`);
-        
-        // Convert base64 to buffer
-        const imageBuffer = Buffer.from(base64Data, 'base64');
-        context.log(`Image buffer size: ${imageBuffer.length} bytes`);
-        
-        // Generate unique filename
-        const timestamp = Date.now();
-        const random = Math.random().toString(36).substring(7);
-        const extension = contentType.split('/')[1] || 'jpg';
-        const blobName = `upload-${timestamp}-${random}.${extension}`;
-        
-        context.log(`Uploading as: ${blobName}`);
-        
-        // Upload to blob storage
-        const blockBlobClient = containerClient.getBlockBlobClient(blobName);
-        await blockBlobClient.upload(imageBuffer, imageBuffer.length, {
-          blobHTTPHeaders: { blobContentType: contentType }
-        });
-        
-        // Get the public URL
-        const imageUrl = blockBlobClient.url;
-        uploadedUrls.push(imageUrl);
-        
-        context.log(`Successfully uploaded image ${i + 1}: ${imageUrl}`);
-      } else {
-        // Already a URL, use as-is
-        context.log(`Image ${i + 1} is already a URL: ${imageData.substring(0, 50)}...`);
-        uploadedUrls.push(imageData);
-      }
-    } catch (error) {
-      context.log.error(`Error uploading image ${i}:`, error.message);
-      context.log.error('Error stack:', error.stack);
-      // Continue with other images even if one fails
-    }
-  }
-
-  context.log(`Total images uploaded: ${uploadedUrls.length}`);
-  return uploadedUrls;
 }
