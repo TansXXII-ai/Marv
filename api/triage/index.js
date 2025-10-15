@@ -1,5 +1,4 @@
 const https = require('https');
-const { BlobServiceClient } = require('@azure/storage-blob');
 const Busboy = require('busboy');
 
 module.exports = async function (context, req) {
@@ -39,24 +38,23 @@ module.exports = async function (context, req) {
       throw new Error('Azure OpenAI API key not configured');
     }
 
-    // Upload images to Blob Storage and get SAS URLs
+    // Get base64 image data URLs from the parsed form
     let imageUrls = [];
     if (formData.images && formData.images.length > 0) {
       context.log(`Processing ${formData.images.length} images...`);
       
-      try {
-        // Upload to Blob Storage with SAS tokens
-        imageUrls = await uploadImagesToBlobWithSAS(formData.images, context);
-        context.log(`Images uploaded to Blob Storage. URLs ready for AI`);
-      } catch (uploadError) {
-        context.log.error('Error uploading images:', uploadError);
-        // Continue - AI will analyze text only
-      }
+      // Convert image buffers to base64 data URLs
+      imageUrls = formData.images.map(img => {
+        const base64 = img.buffer.toString('base64');
+        return `data:${img.contentType};base64,${base64}`;
+      });
+      
+      context.log(`Converted ${imageUrls.length} images to base64 data URLs`);
     } else {
       context.log('No images provided in request');
     }
 
-    // Call the AI Assistant with image URLs
+    // Call the AI Assistant with base64 image data URLs
     const aiResponse = await callMagicmanAI(
       endpoint,
       apiKey,
@@ -99,144 +97,72 @@ module.exports = async function (context, req) {
 };
 
 async function parseMultipartFormData(req, context) {
-  const contentType = req.headers['content-type'] || '';
-  
-  if (!contentType.includes('multipart/form-data')) {
-    throw new Error('Content-Type must be multipart/form-data');
-  }
+  return new Promise((resolve, reject) => {
+    const busboy = Busboy({ 
+      headers: req.headers,
+      limits: {
+        fileSize: 10 * 1024 * 1024 // 10MB limit per file
+      }
+    });
+    
+    const formData = {
+      name: '',
+      email: '',
+      postcode: '',
+      text: '',
+      images: []
+    };
+    
+    const fileBuffers = [];
 
-  // Extract boundary from content-type
-  const boundaryMatch = contentType.match(/boundary=(.+)$/);
-  if (!boundaryMatch) {
-    throw new Error('No boundary found in multipart data');
-  }
-  
-  const boundary = Buffer.from('--' + boundaryMatch[1]);
-  const rawBody = req.rawBody || req.body;
-  
-  // Ensure we have a Buffer
-  const bodyBuffer = Buffer.isBuffer(rawBody) ? rawBody : Buffer.from(rawBody);
-  
-  const formData = {
-    name: '',
-    email: '',
-    postcode: '',
-    text: '',
-    images: []
-  };
+    // Handle text fields
+    busboy.on('field', (fieldname, value) => {
+      formData[fieldname] = value;
+    });
 
-  // Split by boundary using Buffer methods
-  let position = 0;
-  while (position < bodyBuffer.length) {
-    // Find next boundary
-    const boundaryIndex = bodyBuffer.indexOf(boundary, position);
-    if (boundaryIndex === -1) break;
-    
-    // Find end of this part (next boundary)
-    const nextBoundaryIndex = bodyBuffer.indexOf(boundary, boundaryIndex + boundary.length);
-    if (nextBoundaryIndex === -1) break;
-    
-    // Extract this part
-    const partStart = boundaryIndex + boundary.length + 2; // +2 for \r\n
-    const partEnd = nextBoundaryIndex - 2; // -2 for \r\n before boundary
-    const part = bodyBuffer.slice(partStart, partEnd);
-    
-    // Find header/body separator (\r\n\r\n)
-    const separator = Buffer.from('\r\n\r\n');
-    const separatorIndex = part.indexOf(separator);
-    if (separatorIndex === -1) {
-      position = nextBoundaryIndex;
-      continue;
-    }
-    
-    // Extract headers and content
-    const headers = part.slice(0, separatorIndex).toString('utf8');
-    const content = part.slice(separatorIndex + 4); // +4 for \r\n\r\n
-    
-    // Parse field name
-    const nameMatch = headers.match(/name="([^"]+)"/);
-    if (!nameMatch) {
-      position = nextBoundaryIndex;
-      continue;
-    }
-    
-    const fieldName = nameMatch[1];
-    
-    // Check if it's a file
-    const filenameMatch = headers.match(/filename="([^"]+)"/);
-    
-    if (filenameMatch) {
-      // It's a file - keep as Buffer (don't convert to string!)
-      const filename = filenameMatch[1];
-      const contentTypeMatch = headers.match(/Content-Type: (.+)/);
-      const contentType = contentTypeMatch ? contentTypeMatch[1].trim() : 'application/octet-stream';
+    // Handle file uploads
+    busboy.on('file', (fieldname, fileStream, fileInfo) => {
+      const { filename, mimeType } = fileInfo;
+      const chunks = [];
       
-      formData.images.push({
-        filename: filename,
-        contentType: contentType,
-        buffer: content // Pure Buffer - not converted to string!
+      fileStream.on('data', (chunk) => {
+        chunks.push(chunk);
       });
       
-      context.log(`Parsed image: ${filename}, size: ${content.length} bytes, type: ${contentType}`);
-    } else {
-      // It's a text field
-      formData[fieldName] = content.toString('utf8').trim();
-    }
+      fileStream.on('end', () => {
+        const buffer = Buffer.concat(chunks);
+        formData.images.push({
+          filename: filename,
+          contentType: mimeType,
+          buffer: buffer
+        });
+        context.log(`Parsed file: ${filename}, size: ${buffer.length} bytes, type: ${mimeType}`);
+      });
+      
+      fileStream.on('error', (err) => {
+        context.log.error(`Error reading file ${filename}:`, err);
+      });
+    });
+
+    // Handle completion
+    busboy.on('finish', () => {
+      resolve(formData);
+    });
+
+    // Handle errors
+    busboy.on('error', (err) => {
+      reject(err);
+    });
+
+    // Pipe the request to busboy
+    const rawBody = req.rawBody || req.body;
+    const bodyBuffer = Buffer.isBuffer(rawBody) ? rawBody : Buffer.from(rawBody);
     
-    position = nextBoundaryIndex;
-  }
-
-  return formData;
-}
-
-async function uploadImagesToBlobWithSAS(images, context) {
-  const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING;
-  
-  if (!connectionString) {
-    throw new Error('Azure Storage connection string not configured');
-  }
-
-  const blobServiceClient = BlobServiceClient.fromConnectionString(connectionString);
-  const containerName = 'marv-images';
-  const containerClient = blobServiceClient.getContainerClient(containerName);
-  
-  const uploadedUrls = [];
-
-  for (let i = 0; i < images.length; i++) {
-    try {
-      const image = images[i];
-      
-      context.log(`Uploading image ${i + 1}/${images.length}: ${image.filename}`);
-      
-      // Generate unique filename
-      const timestamp = Date.now();
-      const random = Math.random().toString(36).substring(7);
-      const extension = image.filename.split('.').pop() || 'jpg';
-      const blobName = `upload-${timestamp}-${random}.${extension}`;
-      
-      // Upload to blob storage
-      const blockBlobClient = containerClient.getBlockBlobClient(blobName);
-      await blockBlobClient.upload(image.buffer, image.buffer.length, {
-        blobHTTPHeaders: { blobContentType: image.contentType }
-      });
-      
-      // Generate SAS token with read permissions (valid for 24 hours)
-      const sasUrl = await blockBlobClient.generateSasUrl({
-        permissions: 'r',
-        expiresOn: new Date(Date.now() + 24 * 60 * 60 * 1000)
-      });
-      
-      uploadedUrls.push(sasUrl);
-      
-      context.log(`Successfully uploaded: ${blobName}`);
-    } catch (error) {
-      context.log.error(`Error uploading image ${i}:`, error.message);
-      // Continue with other images even if one fails
-    }
-  }
-
-  context.log(`Total images uploaded: ${uploadedUrls.length}`);
-  return uploadedUrls;
+    // Create a readable stream from the buffer
+    const { Readable } = require('stream');
+    const stream = Readable.from(bodyBuffer);
+    stream.pipe(busboy);
+  });
 }
 
 async function callMagicmanAI(endpoint, apiKey, assistantId, apiVersion, text, imageUrls, context) {
@@ -252,10 +178,10 @@ async function callMagicmanAI(endpoint, apiKey, assistantId, apiVersion, text, i
       {}
     );
 
-    // Step 2: Add message to thread with images
+    // Step 2: Add message to thread with images (as base64 data URLs)
     context.log('Adding message to thread...');
     
-    // Build message content with text and images
+    // Build message content with text and images (as base64 data URLs)
     const messageContent = [
       {
         type: 'text',
@@ -263,17 +189,18 @@ async function callMagicmanAI(endpoint, apiKey, assistantId, apiVersion, text, i
       }
     ];
 
-    // Add images as image_url content (using Blob Storage SAS URLs)
+    // Add images as base64 data URLs (exactly like the playground does)
     if (imageUrls && imageUrls.length > 0) {
       imageUrls.forEach(imageUrl => {
         messageContent.push({
           type: 'image_url',
           image_url: {
-            url: imageUrl
+            url: imageUrl,
+            detail: 'auto'
           }
         });
       });
-      context.log(`Adding ${imageUrls.length} images to message`);
+      context.log(`Adding ${imageUrls.length} images as base64 data URLs`);
     }
 
     await makeRequest(
