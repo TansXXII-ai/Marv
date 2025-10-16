@@ -22,15 +22,23 @@ const apiKey =
   process.env.AZURE_OPENAI_API_KEY || process.env.AZURE_OPENAI_KEY;
 const assistantId =
   process.env.AZURE_OPENAI_ASSISTANT_ID || "asst_REPLACE_ME";
-const apiVersion = process.env.AZURE_OPENAI_API_VERSION || "2024-05-01-preview";
+const apiVersion =
+  process.env.AZURE_OPENAI_API_VERSION || "2024-05-01-preview";
 
 // ---- Helpers ----
 
-/** Basic JSON response helper */
+/** Basic JSON response helper (adds CORS on every response) */
 function json(context, status, body) {
+  const origin =
+    (context.req && context.req.headers && context.req.headers.origin) || "*";
   context.res = {
     status,
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      "Access-Control-Allow-Origin": origin,
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    },
     body,
   };
 }
@@ -79,10 +87,7 @@ function parseMultipart(req) {
       const { filename, mimeType } = info;
       const chunks = [];
       file.on("data", (d) => chunks.push(d));
-      file.on("limit", () => {
-        // If you configure limits in Busboy, handle them here
-        reject(new Error("File too large or limit reached."));
-      });
+      file.on("limit", () => reject(new Error("File too large or limit reached.")));
       file.on("end", () => {
         const buffer = Buffer.concat(chunks);
         files.push({ filename, mimeType, buffer });
@@ -140,7 +145,6 @@ async function getRun(threadId, runId) {
 
 /** Get latest message(s) */
 async function listMessages(threadId, limit = 10) {
-  // Order desc to get latest first
   return aoaiFetch(
     `/assistants/threads/${threadId}/messages?order=desc&limit=${limit}`,
     { method: "GET" }
@@ -151,7 +155,6 @@ async function listMessages(threadId, limit = 10) {
 function extractAssistantText(message) {
   if (!message || !message.content) return "";
   const parts = message.content;
-  // Collect all text parts (some replies can have multiple)
   const texts = parts
     .filter((p) => p.type === "text" && p.text && p.text.value)
     .map((p) => p.text.value.trim());
@@ -161,6 +164,20 @@ function extractAssistantText(message) {
 // ---- Azure Function entrypoint ----
 
 export default async function (context, req) {
+  // --- CORS preflight (handle early) ---
+  if (req.method === "OPTIONS") {
+    const origin = req.headers.origin || "*";
+    context.res = {
+      status: 204,
+      headers: {
+        "Access-Control-Allow-Origin": origin,
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      },
+    };
+    return;
+  }
+
   try {
     // Quick env validation
     if (!endpoint || !apiKey || !assistantId) {
@@ -185,7 +202,7 @@ export default async function (context, req) {
     const name = (fields.name || "").trim();
     const email = (fields.email || "").trim();
     const postcode = (fields.postcode || "").trim();
-    const description = (fields.description || "").trim();
+    const description = (fields.description || fields.text || "").trim();
 
     // Convert uploaded files to data URLs for Assistants vision
     const imageDataUrls = (files || [])
@@ -207,8 +224,8 @@ export default async function (context, req) {
           `Please analyse these image(s) and description for surface repair triage.\n` +
           `Return a clear decision and rationale. If critical details are missing (material or finish), ask up to 2 concise clarifying questions.`,
       },
-      // Append each image as Assistants "input_image"
       ...imageDataUrls.map((url) => ({
+        // Assistants vision
         type: "input_image",
         image_url: { url, detail: "auto" },
       })),
@@ -225,7 +242,7 @@ export default async function (context, req) {
 
     // 4) Poll until completed (or timeout)
     const startedAt = Date.now();
-    const timeoutMs = 60_000; // 60s; adjust if needed
+    const timeoutMs = 60_000; // 60s
     const pollInterval = 800;
 
     while (run.status === "queued" || run.status === "in_progress") {
