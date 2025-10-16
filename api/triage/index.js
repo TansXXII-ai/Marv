@@ -196,6 +196,14 @@ export default async function (context, req) {
       });
     }
 
+    // 🔎 Extra guard: make sure we're not about to send garbage
+    context.log(`MARV env: endpoint=${endpoint}, assistantId=${assistantId}`);
+    if (!assistantId.startsWith("asst_")) {
+      return json(context, 500, {
+        error: `Invalid assistant id resolved at runtime: "${assistantId}". Expected it to start with "asst_".`
+      });
+    }
+
     // Basic content-type validation
     const ct = (req.headers && req.headers["content-type"]) || "";
     if (!ct.includes("multipart/form-data")) {
