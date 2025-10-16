@@ -1,348 +1,267 @@
-const https = require('https');
-const Busboy = require('busboy');
+// api/triage/index.js
+// Azure Function (Node.js) — MARV Triage Endpoint
+// - Parses multipart form (name, email, postcode, description, images[])
+// - Sends text + images to Azure OpenAI Assistants (file_search-enabled Assistant)
+// - Returns assistant result as JSON
 
-module.exports = async function (context, req) {
-  // Handle CORS preflight
-  if (req.method === 'OPTIONS') {
-    context.res = {
-      status: 200,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type'
-      },
-      body: ''
-    };
-    return;
-  }
+import Busboy from "busboy";
 
-  try {
-    // Parse multipart form data
-    const formData = await parseMultipartFormData(req, context);
-    
-    context.log('Form data parsed:', {
-      name: formData.name,
-      email: formData.email,
-      postcode: formData.postcode,
-      descriptionLength: formData.text?.length,
-      imageCount: formData.images?.length
-    });
+/**
+ * --- Environment variables required ---
+ * AZURE_OPENAI_ENDPOINT      e.g. https://magroupai.openai.azure.com
+ * AZURE_OPENAI_API_KEY       your Azure OpenAI key
+ * AZURE_OPENAI_ASSISTANT_ID  the Assistant created with tools:[{type:"file_search"}]
+ *
+ * Optional:
+ * AZURE_OPENAI_API_VERSION   defaults to "2024-05-01-preview"
+ */
 
-    // Azure OpenAI Configuration
-    const endpoint = 'https://magroupai.openai.azure.com';
-    const apiKey = process.env.AZURE_OPENAI_KEY;
-    const assistantId = 'asst_rXZAchOFFghPKMiEF0KGrCOJ';
-    const apiVersion = '2024-02-15-preview';
+const endpoint =
+  process.env.AZURE_OPENAI_ENDPOINT || "https://magroupai.openai.azure.com";
+const apiKey =
+  process.env.AZURE_OPENAI_API_KEY || process.env.AZURE_OPENAI_KEY;
+const assistantId =
+  process.env.AZURE_OPENAI_ASSISTANT_ID || "asst_REPLACE_ME";
+const apiVersion = process.env.AZURE_OPENAI_API_VERSION || "2024-05-01-preview";
 
-    if (!apiKey) {
-      throw new Error('Azure OpenAI API key not configured');
-    }
+// ---- Helpers ----
 
-    // Get base64 image data URLs from the parsed form
-    let imageUrls = [];
-    if (formData.images && formData.images.length > 0) {
-      context.log(`Processing ${formData.images.length} images...`);
-      
-      // Convert image buffers to base64 data URLs
-      imageUrls = formData.images.map(img => {
-        const base64 = img.buffer.toString('base64');
-        return `data:${img.contentType};base64,${base64}`;
-      });
-      
-      context.log(`Converted ${imageUrls.length} images to base64 data URLs`);
-    } else {
-      context.log('No images provided in request');
-    }
+/** Basic JSON response helper */
+function json(context, status, body) {
+  context.res = {
+    status,
+    headers: { "Content-Type": "application/json" },
+    body,
+  };
+}
 
-    // Call the AI Assistant with base64 image data URLs
-    const aiResponse = await callMagicmanAI(
-      endpoint,
-      apiKey,
-      assistantId,
-      apiVersion,
-      formData.text,
-      imageUrls,
-      context
+/** Simple wait */
+function sleep(ms) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+/** Azure OpenAI REST wrapper (uses global fetch) */
+async function aoaiFetch(path, options = {}) {
+  const url = `${endpoint}/openai${path}${
+    path.includes("?") ? "&" : "?"
+  }api-version=${encodeURIComponent(apiVersion)}`;
+
+  const res = await fetch(url, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      "api-key": apiKey,
+      ...(options.headers || {}),
+    },
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(
+      `Azure OpenAI request failed: ${res.status} ${res.statusText} — ${text}`
     );
-
-    // Return the AI's response
-    context.res = {
-      status: 200,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*'
-      },
-      body: {
-        decision: aiResponse.decision,
-        confidence_0to1: aiResponse.confidence_0to1,
-        reasons: aiResponse.reasons
-      }
-    };
-
-  } catch (error) {
-    context.log.error('Error processing triage:', error);
-    
-    context.res = {
-      status: 500,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*'
-      },
-      body: {
-        error: 'Failed to analyse damage',
-        message: error.message
-      }
-    };
   }
-};
+  return res.json();
+}
 
-async function parseMultipartFormData(req, context) {
+/** Parse multipart/form-data into { fields, files[] } */
+function parseMultipart(req) {
   return new Promise((resolve, reject) => {
-    const busboy = Busboy({ 
-      headers: req.headers,
-      limits: {
-        fileSize: 10 * 1024 * 1024 // 10MB limit per file
-      }
-    });
-    
-    const formData = {
-      name: '',
-      email: '',
-      postcode: '',
-      text: '',
-      images: []
-    };
-    
-    const fileBuffers = [];
+    const bb = Busboy({ headers: req.headers });
+    const fields = {};
+    const files = [];
 
-    // Handle text fields
-    busboy.on('field', (fieldname, value) => {
-      formData[fieldname] = value;
+    bb.on("field", (name, val) => {
+      fields[name] = val;
     });
 
-    // Handle file uploads
-    busboy.on('file', (fieldname, fileStream, fileInfo) => {
-      const { filename, mimeType } = fileInfo;
+    bb.on("file", (name, file, info) => {
+      const { filename, mimeType } = info;
       const chunks = [];
-      
-      fileStream.on('data', (chunk) => {
-        chunks.push(chunk);
+      file.on("data", (d) => chunks.push(d));
+      file.on("limit", () => {
+        // If you configure limits in Busboy, handle them here
+        reject(new Error("File too large or limit reached."));
       });
-      
-      fileStream.on('end', () => {
+      file.on("end", () => {
         const buffer = Buffer.concat(chunks);
-        formData.images.push({
-          filename: filename,
-          contentType: mimeType,
-          buffer: buffer
-        });
-        context.log(`Parsed file: ${filename}, size: ${buffer.length} bytes, type: ${mimeType}`);
-      });
-      
-      fileStream.on('error', (err) => {
-        context.log.error(`Error reading file ${filename}:`, err);
+        files.push({ filename, mimeType, buffer });
       });
     });
 
-    // Handle completion
-    busboy.on('finish', () => {
-      resolve(formData);
-    });
+    bb.on("error", reject);
+    bb.on("finish", () => resolve({ fields, files }));
 
-    // Handle errors
-    busboy.on('error', (err) => {
-      reject(err);
-    });
-
-    // Pipe the request to busboy
-    const rawBody = req.rawBody || req.body;
-    const bodyBuffer = Buffer.isBuffer(rawBody) ? rawBody : Buffer.from(rawBody);
-    
-    // Create a readable stream from the buffer
-    const { Readable } = require('stream');
-    const stream = Readable.from(bodyBuffer);
-    stream.pipe(busboy);
+    req.pipe(bb);
   });
 }
 
-async function callMagicmanAI(endpoint, apiKey, assistantId, apiVersion, text, imageUrls, context) {
+/** Convert file buffers to data URLs for Assistants input_image */
+function makeDataUrl({ mimeType, buffer }) {
+  const base64 = buffer.toString("base64");
+  return `data:${mimeType};base64,${base64}`;
+}
+
+/** Create a thread */
+async function createThread() {
+  return aoaiFetch(`/assistants/threads`, {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+}
+
+/** Create a user message with mixed content (text + images) */
+async function createMessage(threadId, contentParts) {
+  return aoaiFetch(`/assistants/threads/${threadId}/messages`, {
+    method: "POST",
+    body: JSON.stringify({
+      role: "user",
+      content: contentParts,
+    }),
+  });
+}
+
+/** Start a run */
+async function createRun(threadId) {
+  return aoaiFetch(`/assistants/threads/${threadId}/runs`, {
+    method: "POST",
+    body: JSON.stringify({
+      assistant_id: assistantId,
+    }),
+  });
+}
+
+/** Get run status */
+async function getRun(threadId, runId) {
+  return aoaiFetch(`/assistants/threads/${threadId}/runs/${runId}`, {
+    method: "GET",
+  });
+}
+
+/** Get latest message(s) */
+async function listMessages(threadId, limit = 10) {
+  // Order desc to get latest first
+  return aoaiFetch(
+    `/assistants/threads/${threadId}/messages?order=desc&limit=${limit}`,
+    { method: "GET" }
+  );
+}
+
+/** Extract readable text from assistant message content parts */
+function extractAssistantText(message) {
+  if (!message || !message.content) return "";
+  const parts = message.content;
+  // Collect all text parts (some replies can have multiple)
+  const texts = parts
+    .filter((p) => p.type === "text" && p.text && p.text.value)
+    .map((p) => p.text.value.trim());
+  return texts.join("\n").trim();
+}
+
+// ---- Azure Function entrypoint ----
+
+export default async function (context, req) {
   try {
-    // Step 1: Create a thread
-    context.log('Creating thread...');
-    const thread = await makeRequest(
-      endpoint,
-      apiKey,
-      apiVersion,
-      'POST',
-      '/openai/threads',
-      {}
+    // Quick env validation
+    if (!endpoint || !apiKey || !assistantId) {
+      return json(context, 500, {
+        error:
+          "Missing AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_API_KEY, or AZURE_OPENAI_ASSISTANT_ID.",
+      });
+    }
+
+    // Parse input (multipart form with Busboy)
+    if (
+      !req.headers["content-type"] ||
+      !req.headers["content-type"].includes("multipart/form-data")
+    ) {
+      return json(context, 400, {
+        error:
+          "Content-Type must be multipart/form-data with fields and image files.",
+      });
+    }
+
+    const { fields, files } = await parseMultipart(req);
+    const name = (fields.name || "").trim();
+    const email = (fields.email || "").trim();
+    const postcode = (fields.postcode || "").trim();
+    const description = (fields.description || "").trim();
+
+    // Convert uploaded files to data URLs for Assistants vision
+    const imageDataUrls = (files || [])
+      .filter((f) => f.buffer && f.buffer.length > 0)
+      .map((f) => makeDataUrl({ mimeType: f.mimeType, buffer: f.buffer }));
+
+    context.log(
+      `Parsed form: name=${name}, email=${email}, postcode=${postcode}, description length=${description.length}, images=${imageDataUrls.length}`
     );
 
-    // Step 2: Add message to thread with images (as base64 data URLs)
-    context.log('Adding message to thread...');
-    
-    // Build message content with text and images (as base64 data URLs)
-    const messageContent = [
+    // Build message content (text + input_image parts)
+    const contentParts = [
       {
-        type: 'text',
-        text: `Customer damage description: ${text}\n\nPlease analyse this damage and provide your triage decision.`
-      }
+        type: "text",
+        text:
+          `Submitter: ${name || "N/A"} (${email || "N/A"})\n` +
+          `Postcode: ${postcode || "N/A"}\n\n` +
+          `Customer damage description:\n${description || "N/A"}\n\n` +
+          `Please analyse these image(s) and description for surface repair triage.\n` +
+          `Return a clear decision and rationale. If critical details are missing (material or finish), ask up to 2 concise clarifying questions.`,
+      },
+      // Append each image as Assistants "input_image"
+      ...imageDataUrls.map((url) => ({
+        type: "input_image",
+        image_url: { url, detail: "auto" },
+      })),
     ];
 
-    // Add images as base64 data URLs (exactly like the playground does)
-    if (imageUrls && imageUrls.length > 0) {
-      imageUrls.forEach(imageUrl => {
-        messageContent.push({
-          type: 'image_url',
-          image_url: {
-            url: imageUrl,
-            detail: 'auto'
-          }
+    // 1) Create thread
+    const thread = await createThread();
+
+    // 2) Post message
+    await createMessage(thread.id, contentParts);
+
+    // 3) Run with your Assistant (must be configured with tools:[{type:"file_search"}])
+    let run = await createRun(thread.id);
+
+    // 4) Poll until completed (or timeout)
+    const startedAt = Date.now();
+    const timeoutMs = 60_000; // 60s; adjust if needed
+    const pollInterval = 800;
+
+    while (run.status === "queued" || run.status === "in_progress") {
+      if (Date.now() - startedAt > timeoutMs) {
+        return json(context, 504, {
+          error: "Run timed out waiting for completion.",
+          status: run.status,
         });
+      }
+      await sleep(pollInterval);
+      run = await getRun(thread.id, run.id);
+    }
+
+    if (run.status !== "completed") {
+      return json(context, 500, {
+        error: "Run did not complete successfully.",
+        status: run.status,
+        last_error: run.last_error || null,
       });
-      context.log(`Adding ${imageUrls.length} images as base64 data URLs`);
     }
 
-    await makeRequest(
-      endpoint,
-      apiKey,
-      apiVersion,
-      'POST',
-      `/openai/threads/${thread.id}/messages`,
-      {
-        role: 'user',
-        content: messageContent
-      }
-    );
+    // 5) Read latest assistant message
+    const messages = await listMessages(thread.id, 5);
+    const assistantMsg = messages.data.find((m) => m.role === "assistant");
+    const text = extractAssistantText(assistantMsg);
 
-    // Step 3: Run the assistant
-    context.log('Running assistant...');
-    const run = await makeRequest(
-      endpoint,
-      apiKey,
-      apiVersion,
-      'POST',
-      `/openai/threads/${thread.id}/runs`,
-      {
-        assistant_id: assistantId
-      }
-    );
-
-    // Step 4: Wait for completion
-    context.log('Waiting for completion...');
-    let runStatus = run;
-    let attempts = 0;
-    const maxAttempts = 60; // Increased timeout for image processing
-
-    while (runStatus.status !== 'completed' && attempts < maxAttempts) {
-      await sleep(1000);
-      runStatus = await makeRequest(
-        endpoint,
-        apiKey,
-        apiVersion,
-        'GET',
-        `/openai/threads/${thread.id}/runs/${run.id}`,
-        null
-      );
-      attempts++;
-
-      context.log(`Run status: ${runStatus.status} (attempt ${attempts}/${maxAttempts})`);
-
-      if (runStatus.status === 'failed' || runStatus.status === 'cancelled' || runStatus.status === 'expired') {
-        // Log the full run status for debugging
-        context.log.error('Run failed. Full status object:', JSON.stringify(runStatus, null, 2));
-        const errorMessage = runStatus.last_error?.message || 'Unknown error';
-        const errorCode = runStatus.last_error?.code || 'unknown_error';
-        context.log.error(`Assistant run ${runStatus.status}: [${errorCode}] ${errorMessage}`);
-        throw new Error(`Assistant run ${runStatus.status}: ${errorMessage}`);
-      }
-    }
-
-    if (runStatus.status !== 'completed') {
-      throw new Error('Assistant run timed out');
-    }
-
-    // Step 5: Get messages
-    context.log('Retrieving messages...');
-    const messages = await makeRequest(
-      endpoint,
-      apiKey,
-      apiVersion,
-      'GET',
-      `/openai/threads/${thread.id}/messages`,
-      null
-    );
-
-    // Get the assistant's response
-    const assistantMessage = messages.data.find(msg => msg.role === 'assistant');
-    if (!assistantMessage) {
-      throw new Error('No assistant response found');
-    }
-
-    const responseText = assistantMessage.content[0].text.value;
-    context.log('AI Response:', responseText);
-
-    // Parse JSON from the response
-    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      throw new Error('Could not find JSON in AI response');
-    }
-
-    const aiResult = JSON.parse(jsonMatch[0]);
-    
-    return aiResult;
-
-  } catch (error) {
-    context.log.error('Error calling Magicman AI:', error);
-    throw error;
+    return json(context, 200, {
+      ok: true,
+      thread_id: thread.id,
+      run_id: run.id,
+      result_text: text,
+    });
+  } catch (err) {
+    context.log.error(err);
+    return json(context, 500, {
+      error: err.message || "Unexpected error.",
+    });
   }
-}
-
-function makeRequest(endpoint, apiKey, apiVersion, method, path, body) {
-  return new Promise((resolve, reject) => {
-    const url = new URL(path, endpoint);
-    url.searchParams.append('api-version', apiVersion);
-
-    const options = {
-      method: method,
-      headers: {
-        'api-key': apiKey,
-        'Content-Type': 'application/json'
-      }
-    };
-
-    const req = https.request(url, options, (res) => {
-      let data = '';
-
-      res.on('data', (chunk) => {
-        data += chunk;
-      });
-
-      res.on('end', () => {
-        if (res.statusCode >= 200 && res.statusCode < 300) {
-          try {
-            resolve(JSON.parse(data));
-          } catch (e) {
-            reject(new Error('Failed to parse response: ' + data));
-          }
-        } else {
-          reject(new Error(`API request failed with status ${res.statusCode}: ${data}`));
-        }
-      });
-    });
-
-    req.on('error', (error) => {
-      reject(error);
-    });
-
-    if (body) {
-      req.write(JSON.stringify(body));
-    }
-
-    req.end();
-  });
-}
-
-function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
 }
