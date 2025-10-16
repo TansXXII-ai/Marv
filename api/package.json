@@ -1,14 +1,12 @@
 {
-  "name": "marv-api",
+  "name": "marv-triage-api",
   "version": "1.0.0",
-  "description": "Marv Widget API Functions",
-  "scripts": {
-    "start": "func start",
-    "test": "echo \"No tests yet\""
-  },
+  "description": "Azure Function for MARV triage (text+vision via Assistants)",
+  "type": "module",
+  "private": true,
+  "engines": { "node": ">=18" },
+  "license": "UNLICENSED",
   "dependencies": {
-    "@azure/storage-blob": "^12.17.0",
     "busboy": "^1.6.0"
-  },
-  "devDependencies": {}
+  }
 }
