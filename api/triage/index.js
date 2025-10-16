@@ -1,5 +1,5 @@
 // api/triage/index.js
-// Azure Function (Node.js) — MARV Triage Endpoint
+// Azure Function (Node.js ESM) — MARV Triage Endpoint
 // - Parses multipart form (name, email, postcode, description, images[])
 // - Sends text + images to Azure OpenAI Assistants (file_search-enabled Assistant)
 // - Returns assistant result as JSON
@@ -37,9 +37,9 @@ function json(context, status, body) {
       "Content-Type": "application/json",
       "Access-Control-Allow-Origin": origin,
       "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization"
     },
-    body,
+    body
   };
 }
 
@@ -59,8 +59,8 @@ async function aoaiFetch(path, options = {}) {
     headers: {
       "Content-Type": "application/json",
       "api-key": apiKey,
-      ...(options.headers || {}),
-    },
+      ...(options.headers || {})
+    }
   });
 
   if (!res.ok) {
@@ -72,10 +72,11 @@ async function aoaiFetch(path, options = {}) {
   return res.json();
 }
 
-/** Parse multipart/form-data into { fields, files[] } */
+/** Parse multipart/form-data into { fields, files[] } using the raw body buffer */
 function parseMultipart(req) {
   return new Promise((resolve, reject) => {
-    const bb = Busboy({ headers: req.headers });
+    const headers = req.headers || {};
+    const bb = Busboy({ headers });
     const fields = {};
     const files = [];
 
@@ -97,7 +98,15 @@ function parseMultipart(req) {
     bb.on("error", reject);
     bb.on("finish", () => resolve({ fields, files }));
 
-    req.pipe(bb);
+    // IMPORTANT: Azure Functions' req is not a stream. Feed Busboy the raw body.
+    const body = req.body ?? req.rawBody;
+    if (Buffer.isBuffer(body)) {
+      bb.end(body);
+    } else if (typeof body === "string") {
+      bb.end(Buffer.from(body, "utf8"));
+    } else {
+      reject(new Error("No raw body available for multipart parsing."));
+    }
   });
 }
 
@@ -111,7 +120,7 @@ function makeDataUrl({ mimeType, buffer }) {
 async function createThread() {
   return aoaiFetch(`/assistants/threads`, {
     method: "POST",
-    body: JSON.stringify({}),
+    body: JSON.stringify({})
   });
 }
 
@@ -121,8 +130,8 @@ async function createMessage(threadId, contentParts) {
     method: "POST",
     body: JSON.stringify({
       role: "user",
-      content: contentParts,
-    }),
+      content: contentParts
+    })
   });
 }
 
@@ -131,15 +140,15 @@ async function createRun(threadId) {
   return aoaiFetch(`/assistants/threads/${threadId}/runs`, {
     method: "POST",
     body: JSON.stringify({
-      assistant_id: assistantId,
-    }),
+      assistant_id: assistantId
+    })
   });
 }
 
 /** Get run status */
 async function getRun(threadId, runId) {
   return aoaiFetch(`/assistants/threads/${threadId}/runs/${runId}`, {
-    method: "GET",
+    method: "GET"
   });
 }
 
@@ -164,7 +173,7 @@ function extractAssistantText(message) {
 // ---- Azure Function entrypoint ----
 
 export default async function (context, req) {
-  // --- CORS preflight (handle early) ---
+  // CORS preflight
   if (req.method === "OPTIONS") {
     const origin = req.headers.origin || "*";
     context.res = {
@@ -172,32 +181,31 @@ export default async function (context, req) {
       headers: {
         "Access-Control-Allow-Origin": origin,
         "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization",
-      },
+        "Access-Control-Allow-Headers": "Content-Type, Authorization"
+      }
     };
     return;
   }
 
   try {
-    // Quick env validation
+    // Env validation
     if (!endpoint || !apiKey || !assistantId) {
       return json(context, 500, {
         error:
-          "Missing AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_API_KEY, or AZURE_OPENAI_ASSISTANT_ID.",
+          "Missing AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_API_KEY, or AZURE_OPENAI_ASSISTANT_ID."
       });
     }
 
-    // Parse input (multipart form with Busboy)
-    if (
-      !req.headers["content-type"] ||
-      !req.headers["content-type"].includes("multipart/form-data")
-    ) {
+    // Basic content-type validation
+    const ct = (req.headers && req.headers["content-type"]) || "";
+    if (!ct.includes("multipart/form-data")) {
       return json(context, 400, {
         error:
-          "Content-Type must be multipart/form-data with fields and image files.",
+          "Content-Type must be multipart/form-data with fields and image files."
       });
     }
 
+    // Parse multipart using raw body buffer (function.json sets dataType: binary)
     const { fields, files } = await parseMultipart(req);
     const name = (fields.name || "").trim();
     const email = (fields.email || "").trim();
@@ -222,13 +230,12 @@ export default async function (context, req) {
           `Postcode: ${postcode || "N/A"}\n\n` +
           `Customer damage description:\n${description || "N/A"}\n\n` +
           `Please analyse these image(s) and description for surface repair triage.\n` +
-          `Return a clear decision and rationale. If critical details are missing (material or finish), ask up to 2 concise clarifying questions.`,
+          `Return a clear decision and rationale. If critical details are missing (material or finish), ask up to 2 concise clarifying questions.`
       },
       ...imageDataUrls.map((url) => ({
-        // Assistants vision
         type: "input_image",
-        image_url: { url, detail: "auto" },
-      })),
+        image_url: { url, detail: "auto" }
+      }))
     ];
 
     // 1) Create thread
@@ -237,19 +244,19 @@ export default async function (context, req) {
     // 2) Post message
     await createMessage(thread.id, contentParts);
 
-    // 3) Run with your Assistant (must be configured with tools:[{type:"file_search"}])
+    // 3) Run with your Assistant (must be tools:[{type:"file_search"}])
     let run = await createRun(thread.id);
 
     // 4) Poll until completed (or timeout)
     const startedAt = Date.now();
-    const timeoutMs = 60_000; // 60s
+    const timeoutMs = 60_000;
     const pollInterval = 800;
 
     while (run.status === "queued" || run.status === "in_progress") {
       if (Date.now() - startedAt > timeoutMs) {
         return json(context, 504, {
           error: "Run timed out waiting for completion.",
-          status: run.status,
+          status: run.status
         });
       }
       await sleep(pollInterval);
@@ -260,7 +267,7 @@ export default async function (context, req) {
       return json(context, 500, {
         error: "Run did not complete successfully.",
         status: run.status,
-        last_error: run.last_error || null,
+        last_error: run.last_error || null
       });
     }
 
@@ -273,12 +280,10 @@ export default async function (context, req) {
       ok: true,
       thread_id: thread.id,
       run_id: run.id,
-      result_text: text,
+      result_text: text
     });
   } catch (err) {
     context.log.error(err);
-    return json(context, 500, {
-      error: err.message || "Unexpected error.",
-    });
+    return json(context, 500, { error: err.message || "Unexpected error." });
   }
 }
