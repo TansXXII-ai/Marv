@@ -22,21 +22,3 @@
     "supportCredentials": false
   }
 }
-The key part is the "cors" section at the bottom - this tells Azure Functions runtime to allow cross-origin requests.
-
-Deploy
-bash
-git add api/host.json staticwebapp.config.json
-git commit -m "Add CORS configuration for Azure Functions"
-git push origin main
-Why both files?
-
-staticwebapp.config.json - For the Static Web App layer
-api/host.json - For the Azure Functions runtime layer
-Both are needed because Azure Static Web Apps have two layers that handle requests!
-
-Let me know if this clears the CORS error! 🚀
-
-
-
-Approach
