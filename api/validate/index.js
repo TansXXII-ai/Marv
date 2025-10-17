@@ -73,30 +73,39 @@ function makeDataUrl({ mimeType, buffer }) {
 async function validateImages(imageDataUrls, description) {
   const contentParts = [{ 
     type: "text", 
-    text: `You are a surface repair expert. Analyze these images to identify:
-1. The surface material type (e.g., wood, laminate, granite, marble, etc.)
-2. The type of damage visible (e.g., scratch, dent, crack, chip, burn, stain, wear)
-3. A brief description of what you see (one sentence)
+    text: `You are a surface repair expert for Magicman. Analyze these images in detail to provide:
+
+1. ITEM DESCRIPTION: A detailed description of the main item visible in the images (e.g., "White ceramic bathtub", "Oak wood kitchen worktop", "Laminate bathroom vanity unit")
+
+2. DAMAGE DESCRIPTION: A comprehensive description of all visible damage to this item, including location, size, and severity
+
+3. MATERIAL: The surface material type (e.g., wood, laminate, granite, marble, ceramic, acrylic, fiberglass, enamel)
+
+4. DAMAGE TYPE: The primary type of damage (e.g., scratch, dent, crack, chip, burn, stain, wear)
 
 User's description: "${description}"
 
 Respond ONLY in this exact JSON format:
 {
+  "itemDescription": "detailed description of the main item in the images",
+  "damageDescription": "detailed description of the damage visible on the item, including location and severity",
   "material": "detected material type",
   "damageType": "detected damage type",
-  "summary": "brief one-sentence description of what's visible"
-}` 
+  "summary": "brief one-sentence overview combining item and damage"
+}
+
+Be specific and detailed in your descriptions to help the customer understand what you're analyzing.` 
   }];
   
   imageDataUrls.forEach(url => {
-    contentParts.push({ type: "image_url", image_url: { url, detail: "low" } });
+    contentParts.push({ type: "image_url", image_url: { url, detail: "high" } });
   });
 
   const response = await aoaiFetch({
     method: "POST",
     body: JSON.stringify({
       messages: [{ role: "user", content: contentParts }],
-      max_tokens: 200,
+      max_tokens: 500,
       temperature: 0.3,
       response_format: { type: "json_object" }
     })
@@ -150,9 +159,11 @@ module.exports = async function (context, req) {
     return json(context, 200, {
       ok: true,
       validation: {
+        itemDescription: validation.itemDescription || "Unable to determine item from images",
+        damageDescription: validation.damageDescription || "Unable to determine damage from images",
         material: validation.material || "Unknown",
         damageType: validation.damageType || "Unknown",
-        summary: validation.summary || "Unable to determine from images",
+        summary: validation.summary || "Unable to analyze images",
         notes: ""
       }
     });
