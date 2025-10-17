@@ -21,8 +21,19 @@ export function showValidationStep() {
             <h2>Please Confirm</h2>
             
             <div class="marv-validation-card">
-                <h3>AI Summary:</h3>
-                <p class="marv-ai-summary">${validatedData.aiSummary}</p>
+                <h3>AI Analysis:</h3>
+                
+                <div style="margin-bottom: 20px;">
+                    <h4 style="margin: 0 0 8px 0; font-size: 14px; font-weight: 600; color: #374151;">Item Detected:</h4>
+                    <p style="margin: 0 0 16px 0; padding: 12px; background: #f3f4f6; border-radius: 8px; color: #1f2937; line-height: 1.6; font-size: 14px;">
+                        ${validatedData.itemDescription || 'Unable to determine item'}
+                    </p>
+                    
+                    <h4 style="margin: 0 0 8px 0; font-size: 14px; font-weight: 600; color: #374151;">Damage Detected:</h4>
+                    <p style="margin: 0; padding: 12px; background: #fef3c7; border-left: 4px solid #f59e0b; border-radius: 8px; color: #92400e; line-height: 1.6; font-size: 14px;">
+                        ${validatedData.damageDescription || 'Unable to determine damage'}
+                    </p>
+                </div>
                 
                 <div class="marv-form-group">
                     <label>Surface Material:</label>
@@ -74,30 +85,22 @@ export function showValidationStep() {
             
             console.log('=== TRIAGE API RESPONSE ===');
             console.log('Full response:', result);
-            console.log('Response type:', typeof result);
-            console.log('Has result property?', result && result.result);
             console.log('========================');
             
-            // Check if result exists
             if (!result) {
                 throw new Error('No response from triage API');
             }
             
-            // Check if result has the expected 'result' property
             let formattedResult;
             if (result.result) {
-                // API returned { result: "DECISION: ..." }
                 formattedResult = result;
             } else if (typeof result === 'string') {
-                // API returned just the string directly
                 formattedResult = { result: result };
             } else if (result.decision) {
-                // API returned structured format { decision: "...", confidence: ... }
                 formattedResult = {
                     result: `DECISION: ${result.decision || 'UNKNOWN'} CONFIDENCE: ${result.confidence || 0} REASONS: ${result.reasons || 'No reasons provided'}`
                 };
             } else {
-                // Unknown format - try to stringify it
                 console.warn('Unexpected API response format:', result);
                 formattedResult = { result: JSON.stringify(result) };
             }
@@ -108,8 +111,6 @@ export function showValidationStep() {
         } catch (error) {
             console.error('=== TRIAGE ERROR ===');
             console.error('Error object:', error);
-            console.error('Error message:', error.message);
-            console.error('Error stack:', error.stack);
             console.error('==================');
             
             showError('Failed to complete analysis. Please try again.');
