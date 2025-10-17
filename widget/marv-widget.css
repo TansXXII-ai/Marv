@@ -546,3 +546,62 @@
     right: 16px;
   }
 }
+/* Add these styles to widget/marv-widget.css */
+
+/* Validation Card */
+.marv-validation-card {
+  background-color: var(--marv-gray-50);
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 16px;
+}
+
+.marv-validation-section {
+  margin-bottom: 16px;
+}
+
+.marv-validation-section:last-child {
+  margin-bottom: 0;
+}
+
+.marv-validation-label {
+  display: block;
+  color: var(--marv-gray-700);
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.marv-validation-summary {
+  color: var(--marv-primary);
+  font-size: 15px;
+  line-height: 1.5;
+  margin: 0;
+  padding: 12px;
+  background-color: white;
+  border-radius: 8px;
+  border-left: 3px solid var(--marv-accent);
+}
+
+/* Select Dropdown */
+.marv-select {
+  width: 100%;
+  padding: 12px 16px;
+  border: 1px solid var(--marv-gray-300);
+  border-radius: 12px;
+  font-size: 14px;
+  font-family: inherit;
+  background-color: white;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.marv-select:focus {
+  outline: none;
+  border-color: var(--marv-accent);
+  box-shadow: 0 0 0 3px rgba(66, 194, 255, 0.1);
+}
+
+.marv-select:hover {
+  border-color: var(--marv-accent);
+}
