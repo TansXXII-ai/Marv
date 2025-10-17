@@ -1,4 +1,4 @@
-/* MARV Widget - Modern Chat Style */
+/* MARV Widget - Conversational Chat Style */
 
 /* Widget Container */
 #marv-widget {
@@ -77,12 +77,15 @@
     background: rgba(255, 255, 255, 0.2);
 }
 
-/* Content */
+/* Content Area - Chat Style */
 .marv-widget-content {
-    padding: 24px;
+    padding: 24px 20px;
     overflow-y: auto;
     max-height: 520px;
-    background: #f9fafb;
+    background: #f3f4f6;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
 }
 
 .marv-widget-content::-webkit-scrollbar {
@@ -102,27 +105,117 @@
     background: #9ca3af;
 }
 
-/* Step Container */
-.marv-step {
+/* Chat Messages */
+.marv-chat-container {
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 20px;
+    padding-bottom: 10px;
 }
 
-.marv-step h2 {
-    margin: 0;
-    font-size: 22px;
-    color: #1f2937;
+.marv-message {
+    display: flex;
+    gap: 12px;
+    animation: messageSlideIn 0.4s ease-out;
+    align-items: flex-end;
+}
+
+@keyframes messageSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(15px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Bot Messages (left side) */
+.marv-message-bot {
+    align-items: flex-end;
+    justify-content: flex-start;
+}
+
+.marv-message-bot .marv-message-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    color: white;
     font-weight: 700;
+    font-size: 16px;
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
 }
 
-.marv-hint {
+.marv-message-bot .marv-message-bubble {
+    background: white;
+    border-radius: 18px 18px 18px 4px;
+    padding: 14px 18px;
+    max-width: 70%;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+    border: 1px solid #f0f0f0;
+}
+
+/* User Messages (right side) */
+.marv-message-user {
+    align-items: flex-end;
+    flex-direction: row-reverse;
+    justify-content: flex-start;
+}
+
+.marv-message-user .marv-message-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    color: white;
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+}
+
+.marv-message-user .marv-message-avatar svg {
+    width: 20px;
+    height: 20px;
+}
+
+.marv-message-user .marv-message-bubble {
+    background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
+    color: white;
+    border-radius: 18px 18px 4px 18px;
+    padding: 14px 18px;
+    max-width: 70%;
+    box-shadow: 0 2px 12px rgba(59, 130, 246, 0.3);
+}
+
+/* Message Content */
+.marv-message-text {
     margin: 0;
-    font-size: 14px;
-    color: #6b7280;
+    line-height: 1.6;
+    font-size: 15px;
+    word-wrap: break-word;
 }
 
-/* Inputs */
+.marv-message-text strong {
+    font-weight: 600;
+}
+
+/* Input Area */
+.marv-input-area {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 8px;
+    padding: 0 48px;
+}
+
 .marv-input,
 .marv-textarea,
 .marv-select {
@@ -146,27 +239,26 @@
 
 .marv-textarea {
     resize: vertical;
-    min-height: 100px;
-}
-
-/* Button Group */
-.marv-btn-group {
-    display: flex;
-    gap: 12px;
+    min-height: 90px;
 }
 
 /* Buttons */
+.marv-btn-group {
+    display: flex;
+    gap: 8px;
+}
+
 .marv-btn,
 .marv-btn-primary,
 .marv-btn-secondary {
-    padding: 14px 24px;
+    padding: 12px 20px;
     border-radius: 12px;
-    font-size: 16px;
+    font-size: 15px;
     font-weight: 600;
     cursor: pointer;
     transition: all 0.2s;
     border: none;
-    width: 100%;
+    flex: 1;
 }
 
 .marv-btn,
@@ -205,8 +297,8 @@
 /* Upload Area */
 .marv-upload-area {
     border: 2px dashed #d1d5db;
-    border-radius: 16px;
-    padding: 40px 20px;
+    border-radius: 12px;
+    padding: 30px 20px;
     text-align: center;
     cursor: pointer;
     transition: all 0.2s;
@@ -221,7 +313,7 @@
 
 .marv-upload-area svg {
     color: #3b82f6;
-    margin-bottom: 12px;
+    margin-bottom: 8px;
 }
 
 .marv-upload-area p {
@@ -236,13 +328,13 @@
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: 8px;
-    margin: 16px 0;
+    margin: 12px 0;
 }
 
 .marv-image-item {
     position: relative;
     aspect-ratio: 1;
-    border-radius: 12px;
+    border-radius: 10px;
     overflow: hidden;
     border: 2px solid #e5e7eb;
     background: white;
@@ -258,19 +350,19 @@
     position: absolute;
     top: 4px;
     right: 4px;
-    width: 24px;
-    height: 24px;
+    width: 22px;
+    height: 22px;
     background: rgba(239, 68, 68, 0.95);
     color: white;
     border: none;
     border-radius: 50%;
-    font-size: 16px;
+    font-size: 14px;
     line-height: 1;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
     transition: all 0.2s;
 }
 
@@ -279,198 +371,158 @@
     transform: scale(1.1);
 }
 
-/* Validation Card */
-.marv-validation-card {
+/* Info Cards in Chat Style */
+.marv-info-card {
     background: white;
     border-radius: 12px;
-    padding: 20px;
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
+    padding: 16px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
-.marv-validation-card h3 {
-    margin: 0 0 8px 0;
-    font-size: 14px;
-    font-weight: 600;
-    color: #6b7280;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-.marv-ai-summary {
-    margin: 0;
-    padding: 16px;
-    background: #eff6ff;
-    border-left: 4px solid #3b82f6;
-    border-radius: 8px;
-    color: #1e40af;
-    line-height: 1.6;
-    font-size: 14px;
-}
-
-.marv-form-group {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.marv-form-group label {
+.marv-info-card h4 {
+    margin: 0 0 12px 0;
     font-size: 14px;
     font-weight: 600;
     color: #374151;
 }
 
-/* Loading State */
-.marv-loading {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 60px 20px;
-    text-align: center;
-    background: white;
-    border-radius: 12px;
-}
-
-.marv-spinner {
-    width: 48px;
-    height: 48px;
-    border: 4px solid #e5e7eb;
-    border-top-color: #3b82f6;
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-    margin-bottom: 16px;
-}
-
-@keyframes spin {
-    to { transform: rotate(360deg); }
-}
-
-.marv-loading p {
+.marv-info-card p {
     margin: 0;
-    color: #6b7280;
     font-size: 14px;
-    font-weight: 500;
+    line-height: 1.6;
+    color: #6b7280;
 }
 
-/* Error State */
-.marv-error {
+/* Validation Card */
+.marv-validation-section {
+    background: #f3f4f6;
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin: 8px 0;
+}
+
+.marv-validation-section.damage {
+    background: #fef3c7;
+    border-left: 4px solid #f59e0b;
+}
+
+.marv-validation-section h5 {
+    margin: 0 0 6px 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: #374151;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.marv-validation-section p {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.5;
+    color: #1f2937;
+}
+
+/* Form Groups */
+.marv-form-group {
     display: flex;
     flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 60px 20px;
-    text-align: center;
-    background: white;
-    border-radius: 12px;
+    gap: 6px;
+    margin: 10px 0;
 }
 
-.marv-error svg {
-    margin-bottom: 16px;
+.marv-form-group label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #374151;
 }
 
-.marv-error p {
-    margin: 0 0 24px 0;
-    color: #6b7280;
-    font-size: 14px;
-}
-
-/* ===== RESULTS PAGE STYLES ===== */
-
-.marv-results-container {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-}
-
-/* Decision Card */
+/* Results Display */
 .marv-decision-card {
     border: 3px solid #e5e7eb;
-    border-radius: 16px;
+    border-radius: 14px;
     overflow: hidden;
     background: white;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    margin: 8px 0;
 }
 
 .marv-decision-header {
-    padding: 20px;
+    padding: 16px;
     color: white;
     text-align: center;
 }
 
 .marv-decision-header h3 {
     margin: 0;
-    font-size: 20px;
+    font-size: 18px;
     font-weight: 700;
 }
 
 .marv-decision-body {
-    padding: 24px;
+    padding: 16px;
 }
 
 /* Confidence Bar */
 .marv-confidence {
     display: flex;
     align-items: center;
-    gap: 12px;
-    margin-bottom: 20px;
+    gap: 10px;
+    margin-bottom: 16px;
 }
 
 .marv-confidence-label {
     font-weight: 600;
     color: #374151;
-    min-width: 90px;
-    font-size: 14px;
+    min-width: 80px;
+    font-size: 13px;
 }
 
 .marv-confidence-bar {
     flex: 1;
-    height: 24px;
+    height: 20px;
     background: #e5e7eb;
-    border-radius: 12px;
+    border-radius: 10px;
     overflow: hidden;
 }
 
 .marv-confidence-fill {
     height: 100%;
     transition: width 0.8s ease-out;
-    border-radius: 12px;
+    border-radius: 10px;
 }
 
 .marv-confidence-value {
     font-weight: 700;
     color: #374151;
-    min-width: 45px;
+    min-width: 40px;
     text-align: right;
-    font-size: 16px;
+    font-size: 15px;
 }
 
 /* Reasons List */
 .marv-reasons {
-    margin-top: 16px;
+    margin-top: 12px;
 }
 
 .marv-reasons h4 {
-    margin: 0 0 12px 0;
-    font-size: 16px;
+    margin: 0 0 10px 0;
+    font-size: 15px;
     font-weight: 600;
     color: #374151;
 }
 
 .marv-reasons ul {
     margin: 0;
-    padding-left: 20px;
+    padding-left: 18px;
     list-style-type: none;
 }
 
 .marv-reasons li {
-    margin-bottom: 10px;
+    margin-bottom: 8px;
     color: #4b5563;
-    line-height: 1.6;
+    line-height: 1.5;
     font-size: 14px;
-    padding-left: 20px;
+    padding-left: 16px;
     position: relative;
 }
 
@@ -480,7 +532,7 @@
     left: 0;
     color: #3b82f6;
     font-weight: bold;
-    font-size: 18px;
+    font-size: 16px;
 }
 
 /* Summary Card */
@@ -489,20 +541,21 @@
     border-radius: 12px;
     overflow: hidden;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    margin: 10px 0;
 }
 
 .marv-summary-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 16px 20px;
+    padding: 14px 16px;
     background: #f9fafb;
     border-bottom: 1px solid #e5e7eb;
 }
 
 .marv-summary-header h4 {
     margin: 0;
-    font-size: 16px;
+    font-size: 15px;
     font-weight: 600;
     color: #374151;
 }
@@ -511,7 +564,7 @@
     display: flex;
     align-items: center;
     gap: 6px;
-    padding: 8px 14px;
+    padding: 6px 12px;
     background: white;
     border: 1px solid #d1d5db;
     border-radius: 8px;
@@ -534,7 +587,7 @@
 }
 
 .marv-summary-content {
-    padding: 20px;
+    padding: 16px;
 }
 
 .marv-summary-display {
@@ -546,19 +599,19 @@
 .marv-summary-edit {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 10px;
 }
 
 .marv-summary-textarea {
     width: 100%;
-    padding: 12px;
+    padding: 10px;
     border: 2px solid #d1d5db;
-    border-radius: 10px;
+    border-radius: 8px;
     font-family: inherit;
     font-size: 14px;
     line-height: 1.5;
     resize: vertical;
-    min-height: 100px;
+    min-height: 80px;
 }
 
 .marv-summary-textarea:focus {
@@ -576,28 +629,22 @@
 .marv-summary-actions .marv-btn-primary,
 .marv-summary-actions .marv-btn-secondary {
     width: auto;
-    padding: 10px 20px;
+    padding: 8px 16px;
     font-size: 14px;
+    flex: 0;
 }
 
-/* Info Card (Accordion) */
-.marv-info-card {
-    background: white;
-    border-radius: 12px;
-    overflow: hidden;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-}
-
+/* Accordion */
 .marv-accordion-btn {
     width: 100%;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 16px 20px;
+    padding: 14px 16px;
     background: white;
     border: none;
     cursor: pointer;
-    font-size: 16px;
+    font-size: 15px;
     font-weight: 600;
     color: #374151;
     transition: background 0.2s;
@@ -613,14 +660,14 @@
 }
 
 .marv-accordion-content {
-    padding: 20px;
+    padding: 16px;
     border-top: 1px solid #e5e7eb;
     background: #f9fafb;
 }
 
 .marv-detail-row {
     display: flex;
-    padding: 12px 0;
+    padding: 10px 0;
     border-bottom: 1px solid #e5e7eb;
 }
 
@@ -631,27 +678,92 @@
 .marv-detail-label {
     font-weight: 600;
     color: #6b7280;
-    min-width: 150px;
-    font-size: 14px;
+    min-width: 140px;
+    font-size: 13px;
 }
 
 .marv-detail-value {
     color: #374151;
     flex: 1;
-    font-size: 14px;
+    font-size: 13px;
 }
 
 /* Results Actions */
 .marv-results-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 12px;
+}
+
+.marv-results-actions .marv-btn-primary {
+    grid-column: 1 / -1;
     display: flex;
-    gap: 12px;
-    padding-top: 10px;
+    align-items: center;
+    justify-content: center;
+}
+
+.marv-btn-primary svg,
+.marv-btn-secondary svg {
+    flex-shrink: 0;
+}
+
+/* Loading State */
+.marv-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+    text-align: center;
+}
+
+.marv-spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid #e5e7eb;
+    border-top-color: #3b82f6;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 12px;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.marv-loading p {
+    margin: 0;
+    color: #6b7280;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+/* Error State */
+.marv-error {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+    text-align: center;
+}
+
+.marv-error svg {
+    margin-bottom: 12px;
+    color: #ef4444;
+}
+
+.marv-error p {
+    margin: 0 0 20px 0;
+    color: #6b7280;
+    font-size: 14px;
 }
 
 /* Debug Details */
 .marv-debug-details {
-    margin-top: 10px;
-    padding: 12px;
+    margin-top: 8px;
+    padding: 10px;
     background: #f9fafb;
     border: 1px solid #e5e7eb;
     border-radius: 8px;
@@ -669,16 +781,51 @@
 }
 
 .marv-debug-pre {
-    margin: 12px 0 0 0;
-    padding: 12px;
+    margin: 10px 0 0 0;
+    padding: 10px;
     background: #1f2937;
     color: #f3f4f6;
     border-radius: 6px;
     font-size: 11px;
-    line-height: 1.5;
+    line-height: 1.4;
     overflow-x: auto;
     white-space: pre-wrap;
     word-wrap: break-word;
+}
+
+/* Typing Indicator */
+.marv-typing {
+    display: flex;
+    gap: 5px;
+    padding: 16px 18px;
+    align-items: center;
+}
+
+.marv-typing-dot {
+    width: 8px;
+    height: 8px;
+    background: #9ca3af;
+    border-radius: 50%;
+    animation: typingBounce 1.4s infinite ease-in-out;
+}
+
+.marv-typing-dot:nth-child(2) {
+    animation-delay: 0.2s;
+}
+
+.marv-typing-dot:nth-child(3) {
+    animation-delay: 0.4s;
+}
+
+@keyframes typingBounce {
+    0%, 60%, 100% {
+        transform: translateY(0);
+        opacity: 0.6;
+    }
+    30% {
+        transform: translateY(-8px);
+        opacity: 1;
+    }
 }
 
 /* Responsive */
@@ -703,6 +850,15 @@
         grid-template-columns: repeat(2, 1fr);
     }
 
+    .marv-message-bot .marv-message-bubble,
+    .marv-message-user .marv-message-bubble {
+        max-width: 80%;
+    }
+
+    .marv-input-area {
+        padding: 0 20px;
+    }
+
     .marv-confidence {
         flex-wrap: wrap;
     }
@@ -713,7 +869,7 @@
     }
     
     .marv-results-actions {
-        flex-direction: column;
+        grid-template-columns: 1fr;
     }
     
     .marv-detail-row {
@@ -724,52 +880,4 @@
     .marv-detail-label {
         min-width: auto;
     }
-}
-
-/* Additional styles for enhanced buttons in results page */
-
-/* Results Actions - Grid layout for 4 buttons */
-.marv-results-actions {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-    padding-top: 10px;
-}
-
-/* Make Submit to Magicman button span full width */
-.marv-results-actions .marv-btn-primary {
-    grid-column: 1 / -1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-/* Icon spacing in buttons */
-.marv-btn-primary svg,
-.marv-btn-secondary svg {
-    flex-shrink: 0;
-}
-
-/* Responsive adjustments for mobile */
-@media (max-width: 640px) {
-    .marv-results-actions {
-        grid-template-columns: 1fr;
-    }
-    
-    .marv-results-actions button {
-        width: 100%;
-    }
-}
-
-/* Enhanced validation card styles for AI analysis sections */
-.marv-validation-card h4 {
-    margin: 0 0 8px 0;
-    font-size: 14px;
-    font-weight: 600;
-    color: #374151;
-}
-
-.marv-validation-card p {
-    margin: 0;
-    line-height: 1.6;
 }
