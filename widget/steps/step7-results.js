@@ -10,7 +10,6 @@ export function showResultsWithData(triageResponse) {
     
     widgetContent.innerHTML = `
         <div class="marv-results-container">
-            <!-- Decision Card -->
             <div class="marv-decision-card" style="border-color: ${color};">
                 <div class="marv-decision-header" style="background-color: ${color};">
                     <h3>${getDecisionLabel(parsed.decision)}</h3>
@@ -35,7 +34,6 @@ export function showResultsWithData(triageResponse) {
                 </div>
             </div>
 
-            <!-- Editable AI Summary -->
             <div class="marv-summary-card">
                 <div class="marv-summary-header">
                     <h4>AI Summary</h4>
@@ -65,7 +63,6 @@ export function showResultsWithData(triageResponse) {
                 </div>
             </div>
 
-            <!-- Additional Information (Collapsible) -->
             <div class="marv-info-card">
                 <button type="button" class="marv-accordion-btn" id="toggleDetailsBtn">
                     <span>Additional Information</span>
@@ -95,8 +92,74 @@ export function showResultsWithData(triageResponse) {
                 </div>
             </div>
 
-            <!-- Action Buttons -->
             <div class="marv-results-actions">
                 <button type="button" class="marv-btn-secondary" id="startOverBtn">Start Over</button>
                 <button type="button" class="marv-btn-primary" id="contactUsBtn">Contact Us</button>
             </div>
+
+            <details class="marv-debug-details">
+                <summary>Raw AI Response (Debug)</summary>
+                <pre class="marv-debug-pre">${triageResponse.result}</pre>
+            </details>
+        </div>
+    `;
+
+    setupResultsEventListeners();
+}
+
+function setupResultsEventListeners() {
+    const editBtn = document.getElementById('editSummaryBtn');
+    const cancelBtn = document.getElementById('cancelEditBtn');
+    const saveBtn = document.getElementById('saveEditBtn');
+    const summaryDisplay = document.getElementById('summaryDisplay');
+    const summaryEdit = document.getElementById('summaryEdit');
+    const summaryTextarea = document.getElementById('summaryTextarea');
+
+    editBtn.addEventListener('click', () => {
+        summaryDisplay.style.display = 'none';
+        summaryEdit.style.display = 'block';
+        summaryTextarea.focus();
+    });
+
+    cancelBtn.addEventListener('click', () => {
+        summaryTextarea.value = validatedData.aiSummary || '';
+        summaryDisplay.style.display = 'block';
+        summaryEdit.style.display = 'none';
+    });
+
+    saveBtn.addEventListener('click', () => {
+        const newSummary = summaryTextarea.value.trim();
+        if (newSummary) {
+            const originalSummary = validatedData.aiSummary;
+            validatedData.aiSummary = newSummary;
+            summaryDisplay.textContent = newSummary;
+            summaryDisplay.style.display = 'block';
+            summaryEdit.style.display = 'none';
+            
+            console.log('User corrected summary:', {
+                original: originalSummary,
+                corrected: newSummary,
+                timestamp: new Date().toISOString()
+            });
+        }
+    });
+
+    const toggleBtn = document.getElementById('toggleDetailsBtn');
+    const detailsContent = document.getElementById('detailsContent');
+    const accordionIcon = toggleBtn.querySelector('.marv-accordion-icon');
+
+    toggleBtn.addEventListener('click', () => {
+        const isHidden = detailsContent.style.display === 'none';
+        detailsContent.style.display = isHidden ? 'block' : 'none';
+        accordionIcon.style.transform = isHidden ? 'rotate(180deg)' : 'rotate(0deg)';
+    });
+
+    document.getElementById('startOverBtn').addEventListener('click', () => {
+        resetState();
+        showStep(1);
+    });
+
+    document.getElementById('contactUsBtn').addEventListener('click', () => {
+        window.open('https://magicman.co.uk/contact', '_blank');
+    });
+}
