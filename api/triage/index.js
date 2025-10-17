@@ -3,7 +3,7 @@ const Busboy = require("busboy");
 const endpoint = process.env.AZURE_OPENAI_ENDPOINT || "https://magroupai.openai.azure.com";
 const apiKey = process.env.AZURE_OPENAI_API_KEY || process.env.AZURE_OPENAI_KEY;
 const deploymentName = process.env.AZURE_OPENAI_DEPLOYMENT || "gpt-4o-mini-version2024-07-18";
-const apiVersion = process.env.AZURE_OPENAI_API_VERSION || "2024-02-15-preview";
+const apiVersion = process.env.AZURE_OPENAI_API_VERSION || "2024-08-01-preview";
 
 function json(context, status, body) {
   const origin = (context.req && context.req.headers && context.req.headers.origin) || "*";
