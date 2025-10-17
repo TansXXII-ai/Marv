@@ -1,8 +1,7 @@
 {
   "name": "marv-triage-api",
   "version": "1.0.0",
-  "description": "Azure Function for MARV triage (text+vision via Assistants)",
-  "type": "module",
+  "description": "Azure Function for MARV triage (text+vision)",
   "private": true,
   "engines": { "node": ">=18" },
   "license": "UNLICENSED",
