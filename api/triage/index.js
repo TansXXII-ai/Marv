@@ -6,14 +6,14 @@ const deploymentName = process.env.AZURE_OPENAI_DEPLOYMENT || "gpt-4o-mini-versi
 const apiVersion = process.env.AZURE_OPENAI_API_VERSION || "2024-08-01-preview";
 
 function json(context, status, body) {
-  const origin = (context.req && context.req.headers && context.req.headers.origin) || "*";
   context.res = {
     status,
     headers: {
       "Content-Type": "application/json",
-      "Access-Control-Allow-Origin": origin,
+      "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type, Authorization"
+      "Access-Control-Allow-Headers": "*",
+      "Access-Control-Allow-Credentials": "false"
     },
     body
   };
@@ -88,14 +88,17 @@ async function callChatCompletions(textPrompt, imageDataUrls) {
 }
 
 module.exports = async function (context, req) {
+  // Set CORS headers on ALL responses
+  const corsHeaders = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Headers": "*"
+  };
+
   if (req.method === "OPTIONS") {
     context.res = {
       status: 204,
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type"
-      }
+      headers: corsHeaders
     };
     return;
   }
@@ -126,6 +129,11 @@ module.exports = async function (context, req) {
     const email = (fields.email || "").trim();
     const postcode = (fields.postcode || "").trim();
     const description = (fields.description || "").trim();
+    
+    // NEW: Get validated metadata from user confirmation
+    const validatedMaterial = (fields.validated_material || "").trim();
+    const validatedDamageType = (fields.validated_damage_type || "").trim();
+    const validatedNotes = (fields.validated_notes || "").trim();
 
     const imageDataUrls = files
       .filter(f => f.buffer && f.buffer.length > 0)
