@@ -1,10 +1,10 @@
 // api/triage/index.js
-// Azure Function (Node.js ESM) — MARV Triage Endpoint (RESPONSES API)
+// Azure Function (Node.js CommonJS) — MARV Triage Endpoint
 // - Parses multipart form (name, email, postcode, description, images[])
-// - Sends text + images to Azure OpenAI Responses API (supports vision)
+// - Sends text + images to Azure OpenAI Chat Completions API (supports vision)
 // - Returns assistant result as JSON
 
-import Busboy from "busboy";
+const Busboy = require("busboy");
 
 /**
  * --- Environment variables required ---
@@ -13,7 +13,7 @@ import Busboy from "busboy";
  * AZURE_OPENAI_DEPLOYMENT    your GPT-4o deployment name (e.g. "gpt-4o")
  *
  * Optional:
- * AZURE_OPENAI_API_VERSION   defaults to "2024-10-01-preview"
+ * AZURE_OPENAI_API_VERSION   defaults to "2024-02-15-preview"
  */
 
 const endpoint =
@@ -23,7 +23,7 @@ const apiKey =
 const deploymentName =
   process.env.AZURE_OPENAI_DEPLOYMENT || "gpt-4o";
 const apiVersion =
-  process.env.AZURE_OPENAI_API_VERSION || "2024-10-01-preview";
+  process.env.AZURE_OPENAI_API_VERSION || "2024-02-15-preview";
 
 // ---- Helpers ----
 
@@ -43,11 +43,9 @@ function json(context, status, body) {
   };
 }
 
-/** Azure OpenAI REST wrapper for Responses API */
-async function aoaiFetch(path, options = {}) {
-  const url = `${endpoint}/openai${path}${
-    path.includes("?") ? "&" : "?"
-  }api-version=${encodeURIComponent(apiVersion)}`;
+/** Azure OpenAI REST wrapper for Chat Completions API */
+async function aoaiFetch(deploymentName, options = {}) {
+  const url = `${endpoint}/openai/deployments/${deploymentName}/chat/completions?api-version=${encodeURIComponent(apiVersion)}`;
 
   const res = await fetch(url, {
     ...options,
@@ -111,29 +109,33 @@ function makeDataUrl({ mimeType, buffer }) {
   return `data:${mimeType};base64,${base64}`;
 }
 
-/** Call Responses API with text + images */
-async function callResponsesAPI(textPrompt, imageDataUrls) {
+/** Call Chat Completions API with text + images */
+async function callChatCompletions(textPrompt, imageDataUrls) {
   const contentParts = [
-    { type: "input_text", text: textPrompt }
+    { type: "text", text: textPrompt }
   ];
 
   // Add all images
   imageDataUrls.forEach(url => {
     contentParts.push({
-      type: "input_image",
-      image_url: url
+      type: "image_url",
+      image_url: {
+        url: url,
+        detail: "auto"
+      }
     });
   });
 
   const payload = {
-    model: deploymentName,
-    input: [{
+    messages: [{
       role: "user",
       content: contentParts
-    }]
+    }],
+    max_tokens: 1000,
+    temperature: 0.7
   };
 
-  return aoaiFetch("/v1/responses", {
+  return aoaiFetch(deploymentName, {
     method: "POST",
     body: JSON.stringify(payload)
   });
@@ -165,7 +167,7 @@ export default async function (context, req) {
       });
     }
 
-    context.log(`MARV env: endpoint=${endpoint}, deployment=${deploymentName}`);
+    context.log(`MARV env: endpoint=${endpoint}, deployment=${deploymentName}, apiVersion=${apiVersion}`);
 
     // Basic content-type validation
     const ct = (req.headers && req.headers["content-type"]) || "";
@@ -191,6 +193,13 @@ export default async function (context, req) {
     context.log(
       `Parsed form: name=${name}, email=${email}, postcode=${postcode}, description length=${description.length}, images=${imageDataUrls.length}`
     );
+
+    // Validate we have images
+    if (imageDataUrls.length === 0) {
+      return json(context, 400, {
+        error: "At least one image is required for damage assessment."
+      });
+    }
 
     // Build the prompt
     const prompt = 
@@ -224,13 +233,13 @@ REASONS:
 
 If critical details are missing (material type, finish, exact location), set DECISION to NEEDS_MORE_INFO and ask up to 2 specific clarifying questions.`;
 
-    // Call the Responses API
-    const response = await callResponsesAPI(prompt, imageDataUrls);
+    // Call the Chat Completions API
+    const response = await callChatCompletions(prompt, imageDataUrls);
 
     // Extract the result text
-    const resultText = response.output_text || response.output?.[0]?.text || "No response";
+    const resultText = response.choices?.[0]?.message?.content || "No response";
 
-    context.log(`Response API result: ${resultText.substring(0, 200)}...`);
+    context.log(`Chat Completions result: ${resultText.substring(0, 200)}...`);
 
     return json(context, 200, {
       ok: true,
