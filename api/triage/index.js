@@ -100,8 +100,19 @@ module.exports = async function (context, req) {
     return;
   }
 
+  // DEBUG LOGGING
+  context.log("=== MARV DEBUG START ===");
+  context.log("Endpoint:", endpoint);
+  context.log("Deployment:", deploymentName);
+  context.log("API Version:", apiVersion);
+  context.log("API Key present:", !!apiKey);
+  context.log("API Key first 10 chars:", apiKey ? apiKey.substring(0, 10) + "..." : "MISSING");
+  context.log("Full URL will be:", `${endpoint}/openai/deployments/${deploymentName}/chat/completions?api-version=${apiVersion}`);
+  context.log("=== MARV DEBUG END ===");
+
   try {
     if (!endpoint || !apiKey || !deploymentName) {
+      context.log("ERROR: Missing config - endpoint:", !!endpoint, "apiKey:", !!apiKey, "deployment:", !!deploymentName);
       return json(context, 500, { error: "Missing Azure OpenAI config" });
     }
 
@@ -120,6 +131,8 @@ module.exports = async function (context, req) {
       .filter(f => f.buffer && f.buffer.length > 0)
       .map(f => makeDataUrl(f));
 
+    context.log(`Parsed form: name=${name}, email=${email}, images=${imageDataUrls.length}`);
+
     if (imageDataUrls.length === 0) {
       return json(context, 400, { error: "At least one image required" });
     }
@@ -134,13 +147,17 @@ DECISION: [REPAIRABLE_SPOT, REPAIRABLE_FULL_RESURFACE, NCD, or NEEDS_MORE_INFO]
 CONFIDENCE: [0.0 to 1.0]
 REASONS: [bullet points]`;
 
+    context.log("About to call Azure OpenAI...");
     const response = await callChatCompletions(prompt, imageDataUrls);
+    context.log("Azure OpenAI responded successfully");
+    
     const resultText = response.choices?.[0]?.message?.content || "No response";
 
     return json(context, 200, { ok: true, result_text: resultText });
 
   } catch (err) {
-    context.log.error(err);
+    context.log.error("ERROR:", err.message);
+    context.log.error("Full error:", JSON.stringify(err, null, 2));
     return json(context, 500, { error: err.message });
   }
 };
