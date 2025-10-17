@@ -52,8 +52,9 @@ jobs:
           ###### Repository/Build Configurations ######
           app_location: "/" # App source code path
           api_location: "api" # API functions location
-          output_location: "." # Built app content directory
+          output_location: "" # Empty for static content at root
           skip_app_build: true # Skip build - no build step needed for static HTML
+          skip_api_build: false # Explicitly build API
           github_id_token: ${{ steps.idtoken.outputs.result }}
           ###### End of Repository/Build Configurations ######
   
