@@ -1,40 +1,38 @@
-// Step 5: Image upload
-import { widgetContent, userData } from '../core/state.js';
+// Step 5: Image upload - Chat style
+import { userData } from '../core/state.js';
 import { CONFIG } from '../core/config.js';
 import { validateFile, validateImageCount } from '../utils/validators.js';
 import { showStep } from './step-router.js';
-import { showLoading } from '../components/loading.js';
-import { showError } from '../components/error.js';
+import { addBotMessage, addInputArea, removeLastInputArea, showTypingIndicator, hideTypingIndicator } from '../utils/chat-helpers.js';
 import { callValidateAPI } from '../utils/api.js';
 import { updateValidatedData } from '../core/state.js';
 
-export function showImageUploadStep() {
-    widgetContent.innerHTML = `
-        <div class="marv-step">
-            <h2>Upload photos of the damage</h2>
-            <p class="marv-hint">Upload up to ${CONFIG.MAX_IMAGES} images (max 10MB each)</p>
-            <div class="marv-upload-area" id="uploadArea">
-                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                    <polyline points="17 8 12 3 7 8"></polyline>
-                    <line x1="12" y1="3" x2="12" y2="15"></line>
-                </svg>
-                <p>Click or drag images here</p>
-                <input type="file" id="fileInput" accept="image/*" multiple style="display: none;">
-            </div>
-            <div class="marv-image-preview" id="imagePreview"></div>
-            <div class="marv-btn-group">
-                <button class="marv-btn-secondary" id="imgBackBtn">Back</button>
-                <button class="marv-btn" id="imgNextBtn" disabled>Next (0/${CONFIG.MAX_IMAGES})</button>
-            </div>
+export async function showImageUploadStep() {
+    await addBotMessage("Excellent! Now I need to see what we're working with. 📸", 300);
+    await addBotMessage(`Please upload photos of the damage (up to ${CONFIG.MAX_IMAGES} images, max 10MB each).`, 600);
+    
+    const inputArea = addInputArea(`
+        <div class="marv-upload-area" id="uploadArea">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="17 8 12 3 7 8"></polyline>
+                <line x1="12" y1="3" x2="12" y2="15"></line>
+            </svg>
+            <p>Click or drag images here</p>
+            <input type="file" id="fileInput" accept="image/*" multiple style="display: none;">
         </div>
-    `;
+        <div class="marv-image-preview" id="imagePreview"></div>
+        <div class="marv-btn-group">
+            <button class="marv-btn-secondary" id="imgBackBtn">Back</button>
+            <button class="marv-btn" id="imgNextBtn" disabled>Analyze (0/${CONFIG.MAX_IMAGES})</button>
+        </div>
+    `);
 
-    const uploadArea = document.getElementById('uploadArea');
-    const fileInput = document.getElementById('fileInput');
-    const preview = document.getElementById('imagePreview');
-    const backBtn = document.getElementById('imgBackBtn');
-    const nextBtn = document.getElementById('imgNextBtn');
+    const uploadArea = inputArea.querySelector('#uploadArea');
+    const fileInput = inputArea.querySelector('#fileInput');
+    const preview = inputArea.querySelector('#imagePreview');
+    const backBtn = inputArea.querySelector('#imgBackBtn');
+    const nextBtn = inputArea.querySelector('#imgNextBtn');
 
     renderImagePreviews(preview, nextBtn);
 
@@ -63,10 +61,15 @@ export function showImageUploadStep() {
     
     nextBtn.addEventListener('click', async () => {
         if (userData.images.length > 0) {
-            showLoading('Analyzing images...');
+            removeLastInputArea();
+            await addBotMessage(`Got it! I can see ${userData.images.length} image${userData.images.length > 1 ? 's' : ''}. Let me analyze ${userData.images.length > 1 ? 'them' : 'it'}... 🔍`, 100);
+            
+            showTypingIndicator();
             
             try {
                 const result = await callValidateAPI();
+                hideTypingIndicator();
+                
                 updateValidatedData({
                     itemDescription: result.itemDescription || '',
                     damageDescription: result.damageDescription || '',
@@ -76,10 +79,12 @@ export function showImageUploadStep() {
                     additionalNotes: '',
                     imageCount: userData.images.length
                 });
+                
                 showStep(6);
             } catch (error) {
+                hideTypingIndicator();
                 console.error('Validation error:', error);
-                showError('Failed to validate images. Please try again.');
+                await addBotMessage("Oops! I had trouble analyzing those images. Please try again or upload different photos. 😕", 100);
             }
         }
     });
@@ -128,6 +133,6 @@ function renderImagePreviews(container, nextBtn) {
         });
     });
 
-    nextBtn.textContent = `Next (${userData.images.length}/${CONFIG.MAX_IMAGES})`;
+    nextBtn.textContent = `Analyze (${userData.images.length}/${CONFIG.MAX_IMAGES})`;
     nextBtn.disabled = userData.images.length === 0;
 }
