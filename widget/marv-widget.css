@@ -725,3 +725,51 @@
         min-width: auto;
     }
 }
+
+/* Additional styles for enhanced buttons in results page */
+
+/* Results Actions - Grid layout for 4 buttons */
+.marv-results-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    padding-top: 10px;
+}
+
+/* Make Submit to Magicman button span full width */
+.marv-results-actions .marv-btn-primary {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Icon spacing in buttons */
+.marv-btn-primary svg,
+.marv-btn-secondary svg {
+    flex-shrink: 0;
+}
+
+/* Responsive adjustments for mobile */
+@media (max-width: 640px) {
+    .marv-results-actions {
+        grid-template-columns: 1fr;
+    }
+    
+    .marv-results-actions button {
+        width: 100%;
+    }
+}
+
+/* Enhanced validation card styles for AI analysis sections */
+.marv-validation-card h4 {
+    margin: 0 0 8px 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: #374151;
+}
+
+.marv-validation-card p {
+    margin: 0;
+    line-height: 1.6;
+}
