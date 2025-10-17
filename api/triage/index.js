@@ -1,7 +1,7 @@
 // api/triage/index.js
-// Azure Function (Node.js ESM) — MARV Triage Endpoint
+// Azure Function (Node.js ESM) — MARV Triage Endpoint (RESPONSES API)
 // - Parses multipart form (name, email, postcode, description, images[])
-// - Sends text + images to Azure OpenAI Assistants (file_search-enabled Assistant)
+// - Sends text + images to Azure OpenAI Responses API (supports vision)
 // - Returns assistant result as JSON
 
 import Busboy from "busboy";
@@ -10,20 +10,20 @@ import Busboy from "busboy";
  * --- Environment variables required ---
  * AZURE_OPENAI_ENDPOINT      e.g. https://magroupai.openai.azure.com
  * AZURE_OPENAI_API_KEY       your Azure OpenAI key
- * AZURE_OPENAI_ASSISTANT_ID  the Assistant created with tools:[{type:"file_search"}]
+ * AZURE_OPENAI_DEPLOYMENT    your GPT-4o deployment name (e.g. "gpt-4o")
  *
  * Optional:
- * AZURE_OPENAI_API_VERSION   defaults to "2024-05-01-preview"
+ * AZURE_OPENAI_API_VERSION   defaults to "2024-10-01-preview"
  */
 
 const endpoint =
   process.env.AZURE_OPENAI_ENDPOINT || "https://magroupai.openai.azure.com";
 const apiKey =
   process.env.AZURE_OPENAI_API_KEY || process.env.AZURE_OPENAI_KEY;
-const assistantId =
-  process.env.AZURE_OPENAI_ASSISTANT_ID || "asst_REPLACE_ME";
+const deploymentName =
+  process.env.AZURE_OPENAI_DEPLOYMENT || "gpt-4o";
 const apiVersion =
-  process.env.AZURE_OPENAI_API_VERSION || "2024-05-01-preview";
+  process.env.AZURE_OPENAI_API_VERSION || "2024-10-01-preview";
 
 // ---- Helpers ----
 
@@ -43,12 +43,7 @@ function json(context, status, body) {
   };
 }
 
-/** Simple wait */
-function sleep(ms) {
-  return new Promise((r) => setTimeout(r, ms));
-}
-
-/** Azure OpenAI REST wrapper (uses global fetch) */
+/** Azure OpenAI REST wrapper for Responses API */
 async function aoaiFetch(path, options = {}) {
   const url = `${endpoint}/openai${path}${
     path.includes("?") ? "&" : "?"
@@ -98,7 +93,7 @@ function parseMultipart(req) {
     bb.on("error", reject);
     bb.on("finish", () => resolve({ fields, files }));
 
-    // IMPORTANT: Azure Functions' req is not a stream. Feed Busboy the raw body.
+    // Feed Busboy the raw body
     const body = req.body ?? req.rawBody;
     if (Buffer.isBuffer(body)) {
       bb.end(body);
@@ -110,64 +105,38 @@ function parseMultipart(req) {
   });
 }
 
-/** Convert file buffers to data URLs for Assistants input_image */
+/** Convert file buffers to data URLs for vision API */
 function makeDataUrl({ mimeType, buffer }) {
   const base64 = buffer.toString("base64");
   return `data:${mimeType};base64,${base64}`;
 }
 
-/** Create a thread */
-async function createThread() {
-  return aoaiFetch(`/assistants/threads`, {
-    method: "POST",
-    body: JSON.stringify({})
-  });
-}
+/** Call Responses API with text + images */
+async function callResponsesAPI(textPrompt, imageDataUrls) {
+  const contentParts = [
+    { type: "input_text", text: textPrompt }
+  ];
 
-/** Create a user message with mixed content (text + images) */
-async function createMessage(threadId, contentParts) {
-  return aoaiFetch(`/assistants/threads/${threadId}/messages`, {
-    method: "POST",
-    body: JSON.stringify({
+  // Add all images
+  imageDataUrls.forEach(url => {
+    contentParts.push({
+      type: "input_image",
+      image_url: url
+    });
+  });
+
+  const payload = {
+    model: deploymentName,
+    input: [{
       role: "user",
       content: contentParts
-    })
-  });
-}
+    }]
+  };
 
-/** Start a run */
-async function createRun(threadId) {
-  return aoaiFetch(`/assistants/threads/${threadId}/runs`, {
+  return aoaiFetch("/v1/responses", {
     method: "POST",
-    body: JSON.stringify({
-      assistant_id: assistantId
-    })
+    body: JSON.stringify(payload)
   });
-}
-
-/** Get run status */
-async function getRun(threadId, runId) {
-  return aoaiFetch(`/assistants/threads/${threadId}/runs/${runId}`, {
-    method: "GET"
-  });
-}
-
-/** Get latest message(s) */
-async function listMessages(threadId, limit = 10) {
-  return aoaiFetch(
-    `/assistants/threads/${threadId}/messages?order=desc&limit=${limit}`,
-    { method: "GET" }
-  );
-}
-
-/** Extract readable text from assistant message content parts */
-function extractAssistantText(message) {
-  if (!message || !message.content) return "";
-  const parts = message.content;
-  const texts = parts
-    .filter((p) => p.type === "text" && p.text && p.text.value)
-    .map((p) => p.text.value.trim());
-  return texts.join("\n").trim();
 }
 
 // ---- Azure Function entrypoint ----
@@ -189,20 +158,14 @@ export default async function (context, req) {
 
   try {
     // Env validation
-    if (!endpoint || !apiKey || !assistantId) {
+    if (!endpoint || !apiKey || !deploymentName) {
       return json(context, 500, {
         error:
-          "Missing AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_API_KEY, or AZURE_OPENAI_ASSISTANT_ID."
+          "Missing AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_API_KEY, or AZURE_OPENAI_DEPLOYMENT."
       });
     }
 
-    // 🔎 Extra guard: make sure we're not about to send garbage
-    context.log(`MARV env: endpoint=${endpoint}, assistantId=${assistantId}`);
-    if (!assistantId.startsWith("asst_")) {
-      return json(context, 500, {
-        error: `Invalid assistant id resolved at runtime: "${assistantId}". Expected it to start with "asst_".`
-      });
-    }
+    context.log(`MARV env: endpoint=${endpoint}, deployment=${deploymentName}`);
 
     // Basic content-type validation
     const ct = (req.headers && req.headers["content-type"]) || "";
@@ -213,14 +176,14 @@ export default async function (context, req) {
       });
     }
 
-    // Parse multipart using raw body buffer (function.json sets dataType: binary)
+    // Parse multipart
     const { fields, files } = await parseMultipart(req);
     const name = (fields.name || "").trim();
     const email = (fields.email || "").trim();
     const postcode = (fields.postcode || "").trim();
     const description = (fields.description || fields.text || "").trim();
 
-    // Convert uploaded files to data URLs for Assistants vision
+    // Convert uploaded files to data URLs
     const imageDataUrls = (files || [])
       .filter((f) => f.buffer && f.buffer.length > 0)
       .map((f) => makeDataUrl({ mimeType: f.mimeType, buffer: f.buffer }));
@@ -229,67 +192,51 @@ export default async function (context, req) {
       `Parsed form: name=${name}, email=${email}, postcode=${postcode}, description length=${description.length}, images=${imageDataUrls.length}`
     );
 
-    // Build message content (text + input_image parts)
-    const contentParts = [
-      {
-        type: "text",
-        text:
-          `Submitter: ${name || "N/A"} (${email || "N/A"})\n` +
-          `Postcode: ${postcode || "N/A"}\n\n` +
-          `Customer damage description:\n${description || "N/A"}\n\n` +
-          `Please analyse these image(s) and description for surface repair triage.\n` +
-          `Return a clear decision and rationale. If critical details are missing (material or finish), ask up to 2 concise clarifying questions.`
-      },
-      ...imageDataUrls.map((url) => ({
-        type: "input_image",
-        image_url: { url, detail: "auto" }
-      }))
-    ];
+    // Build the prompt
+    const prompt = 
+      `You are a surface repair triage assistant for Magicman, a specialist repair company.
 
-    // 1) Create thread
-    const thread = await createThread();
+Submitter Details:
+- Name: ${name || "N/A"}
+- Email: ${email || "N/A"}
+- Postcode: ${postcode || "N/A"}
 
-    // 2) Post message
-    await createMessage(thread.id, contentParts);
+Customer Damage Description:
+${description || "N/A"}
 
-    // 3) Run with your Assistant (must be tools:[{type:"file_search"}])
-    let run = await createRun(thread.id);
+Task:
+Analyze the provided images and description to determine the repair classification. Consider:
+1. Size and severity of damage
+2. Material type (worktop, furniture, flooring, etc.)
+3. Whether it's surface-level or structural
+4. Feasibility of spot repair vs full resurface
 
-    // 4) Poll until completed (or timeout)
-    const startedAt = Date.now();
-    const timeoutMs = 60_000;
-    const pollInterval = 800;
+Provide your response in the following format:
 
-    while (run.status === "queued" || run.status === "in_progress") {
-      if (Date.now() - startedAt > timeoutMs) {
-        return json(context, 504, {
-          error: "Run timed out waiting for completion.",
-          status: run.status
-        });
-      }
-      await sleep(pollInterval);
-      run = await getRun(thread.id, run.id);
-    }
+DECISION: [One of: REPAIRABLE_SPOT, REPAIRABLE_FULL_RESURFACE, NCD, NEEDS_MORE_INFO]
 
-    if (run.status !== "completed") {
-      return json(context, 500, {
-        error: "Run did not complete successfully.",
-        status: run.status,
-        last_error: run.last_error || null
-      });
-    }
+CONFIDENCE: [0.0 to 1.0]
 
-    // 5) Read latest assistant message
-    const messages = await listMessages(thread.id, 5);
-    const assistantMsg = messages.data.find((m) => m.role === "assistant");
-    const text = extractAssistantText(assistantMsg);
+REASONS:
+- [Reason 1]
+- [Reason 2]
+- [Reason 3]
+
+If critical details are missing (material type, finish, exact location), set DECISION to NEEDS_MORE_INFO and ask up to 2 specific clarifying questions.`;
+
+    // Call the Responses API
+    const response = await callResponsesAPI(prompt, imageDataUrls);
+
+    // Extract the result text
+    const resultText = response.output_text || response.output?.[0]?.text || "No response";
+
+    context.log(`Response API result: ${resultText.substring(0, 200)}...`);
 
     return json(context, 200, {
       ok: true,
-      thread_id: thread.id,
-      run_id: run.id,
-      result_text: text
+      result_text: resultText
     });
+
   } catch (err) {
     context.log.error(err);
     return json(context, 500, { error: err.message || "Unexpected error." });
