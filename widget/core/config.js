@@ -7,10 +7,19 @@ export const CONFIG = {
 
 export const DECISION_COLORS = {
     'REPAIRABLE_COSMETIC': '#10b981',
+    'REPAIRABLE_SPOT': '#10b981',  // ADD THIS LINE
     'REPAIRABLE_FULL_RESURFACE': '#3b82f6',
     'NOT_REPAIRABLE': '#ef4444',
     'NEEDS_ASSESSMENT': '#f59e0b',
     'DEFAULT': '#6b7280'
+};
+
+export const DECISION_LABELS = {
+    'REPAIRABLE_COSMETIC': 'Repairable - Cosmetic',
+    'REPAIRABLE_SPOT': 'Repairable - Spot Repair',  // ADD THIS LINE
+    'REPAIRABLE_FULL_RESURFACE': 'Repairable - Full Resurface',
+    'NOT_REPAIRABLE': 'Not Repairable',
+    'NEEDS_ASSESSMENT': 'Needs Assessment'
 };
 
 export const DECISION_LABELS = {
