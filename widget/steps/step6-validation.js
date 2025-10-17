@@ -1,13 +1,29 @@
-// Step 6: Validation confirmation
-import { widgetContent, validatedData, updateValidatedData } from '../core/state.js';
+// Step 6: Validation confirmation - Chat style
+import { validatedData, updateValidatedData } from '../core/state.js';
 import { MATERIAL_OPTIONS, DAMAGE_OPTIONS } from '../core/config.js';
 import { showStep } from './step-router.js';
-import { showLoading } from '../components/loading.js';
-import { showError } from '../components/error.js';
+import { addBotMessage, addBotMessageWithContent, addInputArea, removeLastInputArea, showTypingIndicator, hideTypingIndicator } from '../utils/chat-helpers.js';
 import { callTriageAPI } from '../utils/api.js';
-import { showResultsWithData } from './step7-results.js';
+import { showResultsWithData } from '../steps/step7-results.js';
 
-export function showValidationStep() {
+export async function showValidationStep() {
+    await addBotMessage("Great! Here's what I can see from your images:", 300);
+    
+    const analysisContent = `
+        <div class="marv-validation-section">
+            <h5>🔍 Item Detected:</h5>
+            <p>${validatedData.itemDescription || 'Unable to determine item'}</p>
+        </div>
+        
+        <div class="marv-validation-section damage">
+            <h5>⚠️ Damage Detected:</h5>
+            <p>${validatedData.damageDescription || 'Unable to determine damage'}</p>
+        </div>
+    `;
+    
+    await addBotMessageWithContent(analysisContent, 600);
+    await addBotMessage("Does this look correct? You can adjust the details below if needed:", 900);
+    
     const materialOptions = MATERIAL_OPTIONS.map(opt => 
         `<option value="${opt.value}" ${validatedData.surfaceMaterial === opt.value ? 'selected' : ''}>${opt.label}</option>`
     ).join('');
@@ -16,57 +32,37 @@ export function showValidationStep() {
         `<option value="${opt.value}" ${validatedData.damageType === opt.value ? 'selected' : ''}>${opt.label}</option>`
     ).join('');
 
-    widgetContent.innerHTML = `
-        <div class="marv-step">
-            <h2>Please Confirm</h2>
-            
-            <div class="marv-validation-card">
-                <h3>AI Analysis:</h3>
-                
-                <div style="margin-bottom: 20px;">
-                    <h4 style="margin: 0 0 8px 0; font-size: 14px; font-weight: 600; color: #374151;">Item Detected:</h4>
-                    <p style="margin: 0 0 16px 0; padding: 12px; background: #f3f4f6; border-radius: 8px; color: #1f2937; line-height: 1.6; font-size: 14px;">
-                        ${validatedData.itemDescription || 'Unable to determine item'}
-                    </p>
-                    
-                    <h4 style="margin: 0 0 8px 0; font-size: 14px; font-weight: 600; color: #374151;">Damage Detected:</h4>
-                    <p style="margin: 0; padding: 12px; background: #fef3c7; border-left: 4px solid #f59e0b; border-radius: 8px; color: #92400e; line-height: 1.6; font-size: 14px;">
-                        ${validatedData.damageDescription || 'Unable to determine damage'}
-                    </p>
-                </div>
-                
-                <div class="marv-form-group">
-                    <label>Surface Material:</label>
-                    <select id="materialSelect" class="marv-select">
-                        ${materialOptions}
-                    </select>
-                </div>
-                
-                <div class="marv-form-group">
-                    <label>Damage Type:</label>
-                    <select id="damageSelect" class="marv-select">
-                        ${damageOptions}
-                    </select>
-                </div>
-                
-                <div class="marv-form-group">
-                    <label>Additional Notes (optional):</label>
-                    <textarea id="notesInput" class="marv-textarea" rows="3" placeholder="Add any corrections or additional details...">${validatedData.additionalNotes}</textarea>
-                </div>
-            </div>
-            
-            <div class="marv-btn-group">
-                <button class="marv-btn-secondary" id="valBackBtn">Back</button>
-                <button class="marv-btn" id="valNextBtn">Confirm & Analyze</button>
-            </div>
+    const inputArea = addInputArea(`
+        <div class="marv-form-group">
+            <label>Surface Material:</label>
+            <select id="materialSelect" class="marv-select">
+                ${materialOptions}
+            </select>
         </div>
-    `;
+        
+        <div class="marv-form-group">
+            <label>Damage Type:</label>
+            <select id="damageSelect" class="marv-select">
+                ${damageOptions}
+            </select>
+        </div>
+        
+        <div class="marv-form-group">
+            <label>Additional Notes (optional):</label>
+            <textarea id="notesInput" class="marv-textarea" rows="2" placeholder="Any corrections or extra details...">${validatedData.additionalNotes}</textarea>
+        </div>
+        
+        <div class="marv-btn-group">
+            <button class="marv-btn-secondary" id="valBackBtn">Back</button>
+            <button class="marv-btn" id="valNextBtn">Looks Good! ✓</button>
+        </div>
+    `);
 
-    const materialSelect = document.getElementById('materialSelect');
-    const damageSelect = document.getElementById('damageSelect');
-    const notesInput = document.getElementById('notesInput');
-    const backBtn = document.getElementById('valBackBtn');
-    const nextBtn = document.getElementById('valNextBtn');
+    const materialSelect = inputArea.querySelector('#materialSelect');
+    const damageSelect = inputArea.querySelector('#damageSelect');
+    const notesInput = inputArea.querySelector('#notesInput');
+    const backBtn = inputArea.querySelector('#valBackBtn');
+    const nextBtn = inputArea.querySelector('#valNextBtn');
 
     backBtn.addEventListener('click', () => showStep(5));
     
@@ -77,15 +73,14 @@ export function showValidationStep() {
             additionalNotes: notesInput.value.trim()
         });
         
-        showLoading('Performing final analysis...');
+        removeLastInputArea();
+        await addBotMessage("Perfect! Let me do a complete analysis now... 🧠", 100);
+        
+        showTypingIndicator();
         
         try {
-            console.log('Calling triage API...');
             const result = await callTriageAPI();
-            
-            console.log('=== TRIAGE API RESPONSE ===');
-            console.log('Full response:', result);
-            console.log('========================');
+            hideTypingIndicator();
             
             if (!result) {
                 throw new Error('No response from triage API');
@@ -105,15 +100,13 @@ export function showValidationStep() {
                 formattedResult = { result: JSON.stringify(result) };
             }
             
-            console.log('Formatted result being sent to results page:', formattedResult);
+            await addBotMessage("Analysis complete! Here are my findings: 📋", 300);
             showResultsWithData(formattedResult);
             
         } catch (error) {
-            console.error('=== TRIAGE ERROR ===');
-            console.error('Error object:', error);
-            console.error('==================');
-            
-            showError('Failed to complete analysis. Please try again.');
+            hideTypingIndicator();
+            console.error('Triage error:', error);
+            await addBotMessage("I'm having trouble completing the analysis. Please try again in a moment. 😕", 100);
         }
     });
 }
