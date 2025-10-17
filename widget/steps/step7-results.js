@@ -1,5 +1,5 @@
 // Step 7: Results display
-import { widgetContent, validatedData, resetState } from '../core/state.js';
+import { widgetContent, validatedData, resetState, widgetContainer } from '../core/state.js';
 import { getDecisionColor, getDecisionLabel } from '../utils/helpers.js';
 import { parseAIResponse } from '../parsers/ai-response.js';
 import { showStep } from './step-router.js';
@@ -7,6 +7,11 @@ import { showStep } from './step-router.js';
 export function showResultsWithData(triageResponse) {
     const parsed = parseAIResponse(triageResponse.result);
     const color = getDecisionColor(parsed.decision);
+    
+    // Enhanced AI summary with material
+    const enhancedSummary = validatedData.surfaceMaterial 
+        ? `Material: ${validatedData.surfaceMaterial}. ${validatedData.aiSummary || 'No summary available'}`
+        : validatedData.aiSummary || 'No summary available';
     
     widgetContent.innerHTML = `
         <div class="marv-results-container">
@@ -47,14 +52,14 @@ export function showResultsWithData(triageResponse) {
                 </div>
                 <div class="marv-summary-content">
                     <div id="summaryDisplay" class="marv-summary-display">
-                        ${validatedData.aiSummary || 'No summary available'}
+                        ${enhancedSummary}
                     </div>
                     <div id="summaryEdit" class="marv-summary-edit" style="display: none;">
                         <textarea 
                             id="summaryTextarea" 
                             class="marv-summary-textarea"
                             rows="4"
-                        >${validatedData.aiSummary || ''}</textarea>
+                        >${enhancedSummary}</textarea>
                         <div class="marv-summary-actions">
                             <button type="button" class="marv-btn-secondary" id="cancelEditBtn">Cancel</button>
                             <button type="button" class="marv-btn-primary" id="saveEditBtn">Save</button>
@@ -93,8 +98,37 @@ export function showResultsWithData(triageResponse) {
             </div>
 
             <div class="marv-results-actions">
-                <button type="button" class="marv-btn-secondary" id="startOverBtn">Start Over</button>
-                <button type="button" class="marv-btn-primary" id="contactUsBtn">Contact Us</button>
+                <button type="button" class="marv-btn-primary" id="submitToMagicmanBtn">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 6px;">
+                        <path d="M22 2L11 13"></path>
+                        <path d="M22 2l-7 20-4-9-9-4 20-7z"></path>
+                    </svg>
+                    Submit to Magicman
+                </button>
+                <button type="button" class="marv-btn-secondary" id="termsBtn">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 6px;">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <line x1="16" y1="13" x2="8" y2="13"></line>
+                        <line x1="16" y1="17" x2="8" y2="17"></line>
+                        <polyline points="10 9 9 9 8 9"></polyline>
+                    </svg>
+                    Terms & Conditions
+                </button>
+                <button type="button" class="marv-btn-secondary" id="startOverBtn">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 6px;">
+                        <polyline points="1 4 1 10 7 10"></polyline>
+                        <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+                    </svg>
+                    Start Over
+                </button>
+                <button type="button" class="marv-btn-secondary" id="closeBtn">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 6px;">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                    Close
+                </button>
             </div>
 
             <details class="marv-debug-details">
@@ -104,10 +138,10 @@ export function showResultsWithData(triageResponse) {
         </div>
     `;
 
-    setupResultsEventListeners();
+    setupResultsEventListeners(enhancedSummary);
 }
 
-function setupResultsEventListeners() {
+function setupResultsEventListeners(originalSummary) {
     const editBtn = document.getElementById('editSummaryBtn');
     const cancelBtn = document.getElementById('cancelEditBtn');
     const saveBtn = document.getElementById('saveEditBtn');
@@ -122,7 +156,7 @@ function setupResultsEventListeners() {
     });
 
     cancelBtn.addEventListener('click', () => {
-        summaryTextarea.value = validatedData.aiSummary || '';
+        summaryTextarea.value = originalSummary;
         summaryDisplay.style.display = 'block';
         summaryEdit.style.display = 'none';
     });
@@ -130,8 +164,6 @@ function setupResultsEventListeners() {
     saveBtn.addEventListener('click', () => {
         const newSummary = summaryTextarea.value.trim();
         if (newSummary) {
-            const originalSummary = validatedData.aiSummary;
-            validatedData.aiSummary = newSummary;
             summaryDisplay.textContent = newSummary;
             summaryDisplay.style.display = 'block';
             summaryEdit.style.display = 'none';
@@ -154,12 +186,33 @@ function setupResultsEventListeners() {
         accordionIcon.style.transform = isHidden ? 'rotate(180deg)' : 'rotate(0deg)';
     });
 
-    document.getElementById('startOverBtn').addEventListener('click', () => {
-        resetState();
-        showStep(1);
+    // Submit to Magicman button
+    document.getElementById('submitToMagicmanBtn').addEventListener('click', () => {
+        // TODO: Implement submission logic
+        alert('Submission feature coming soon! Your assessment will be sent to Magicman for processing.');
+        console.log('Submit to Magicman clicked - implement submission logic here');
     });
 
-    document.getElementById('contactUsBtn').addEventListener('click', () => {
-        window.open('https://magicman.co.uk/contact', '_blank');
+    // Terms & Conditions button
+    document.getElementById('termsBtn').addEventListener('click', () => {
+        // TODO: Link to actual terms and conditions page
+        alert('Terms & Conditions will be displayed here. Link to be provided.');
+        console.log('Terms & Conditions clicked - add link to T&C document');
+    });
+
+    // Start Over button
+    document.getElementById('startOverBtn').addEventListener('click', () => {
+        if (confirm('Are you sure you want to start over? All current data will be lost.')) {
+            resetState();
+            showStep(1);
+        }
+    });
+
+    // Close button
+    document.getElementById('closeBtn').addEventListener('click', () => {
+        if (confirm('Are you sure you want to close? All current data will be cleared.')) {
+            resetState();
+            widgetContainer.style.display = 'none';
+        }
     });
 }
