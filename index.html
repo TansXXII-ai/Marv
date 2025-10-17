@@ -78,6 +78,11 @@
             font-size: 14px;
             opacity: 0.8;
         }
+        
+        /* Hide widget initially */
+        #marv-widget {
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -102,7 +107,7 @@
         </div>
     </div>
 
-    <!-- MARV Widget Container -->
+    <!-- MARV Widget Container (hidden until button clicked) -->
     <div id="marv-widget"></div>
 
     <script src="widget/dist/marv-widget.bundle.js"></script>
