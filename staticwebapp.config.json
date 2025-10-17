@@ -7,18 +7,13 @@
   ],
   "navigationFallback": {
     "rewrite": "/index.html",
-    "exclude": ["/api/*"]
+    "exclude": ["/api/*", "/widget/*"]
   },
   "responseOverrides": {
     "401": {
       "statusCode": 401,
       "rewrite": "/index.html"
     }
-  },
-  "globalHeaders": {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization"
   },
   "mimeTypes": {
     ".json": "application/json",
