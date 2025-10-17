@@ -68,6 +68,8 @@ export function showImageUploadStep() {
             try {
                 const result = await callValidateAPI();
                 updateValidatedData({
+                    itemDescription: result.itemDescription || '',
+                    damageDescription: result.damageDescription || '',
                     aiSummary: result.summary || '',
                     surfaceMaterial: result.material || '',
                     damageType: result.damageType || '',
