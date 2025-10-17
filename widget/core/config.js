@@ -22,12 +22,6 @@ export const DECISION_LABELS = {
     'NEEDS_ASSESSMENT': 'Needs Assessment'
 };
 
-export const DECISION_LABELS = {
-    'REPAIRABLE_COSMETIC': 'Repairable - Cosmetic',
-    'REPAIRABLE_FULL_RESURFACE': 'Repairable - Full Resurface',
-    'NOT_REPAIRABLE': 'Not Repairable',
-    'NEEDS_ASSESSMENT': 'Needs Assessment'
-};
 
 export const MATERIAL_OPTIONS = [
     { value: 'acrylic', label: 'Acrylic' },
