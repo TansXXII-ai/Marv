@@ -30,6 +30,7 @@ jobs:
           cd widget
           npm install
           npm run build
+          cd ..
           
       - name: Build And Deploy
         id: builddeploy
@@ -41,6 +42,7 @@ jobs:
           app_location: "/"
           api_location: "api"
           output_location: ""
+          skip_app_build: true
 
   close_pull_request_job:
     if: github.event_name == 'pull_request' && github.event.action == 'closed'
