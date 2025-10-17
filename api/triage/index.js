@@ -143,7 +143,7 @@ async function callChatCompletions(textPrompt, imageDataUrls) {
 
 // ---- Azure Function entrypoint ----
 
-export default async function (context, req) {
+module.exports = async function (context, req) {
   // CORS preflight
   if (req.method === "OPTIONS") {
     const origin = req.headers.origin || "*";
