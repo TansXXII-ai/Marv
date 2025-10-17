@@ -4,7 +4,7 @@ import { MATERIAL_OPTIONS, DAMAGE_OPTIONS } from '../core/config.js';
 import { showStep } from './step-router.js';
 import { addBotMessage, addBotMessageWithContent, addInputArea, removeLastInputArea, showTypingIndicator, hideTypingIndicator } from '../utils/chat-helpers.js';
 import { callTriageAPI } from '../utils/api.js';
-import { showResultsWithData } from '../steps/step7-results.js';
+import { showResultsWithData } from './step7-results.js';
 
 export async function showValidationStep() {
     await addBotMessage("Great! Here's what I can see from your images:", 300);
