@@ -11,6 +11,7 @@ class MarvWidget {
       description: '',
       images: []
     };
+    this.validationData = null; // Store AI's initial analysis
     this.result = null;
     this.resetTimer = null;
 
@@ -66,6 +67,7 @@ class MarvWidget {
             <div class="marv-progress-step" data-step="3"></div>
             <div class="marv-progress-step" data-step="4"></div>
             <div class="marv-progress-step" data-step="5"></div>
+            <div class="marv-progress-step" data-step="6"></div>
           </div>
         </div>
 
@@ -103,7 +105,9 @@ class MarvWidget {
 
   handleContinue() {
     if (this.step === 5) {
-      this.submitForm();
+      this.validateImages(); // NEW: Validate images first
+    } else if (this.step === 6) {
+      this.submitFinalAnalysis(); // NEW: Final analysis after validation
     } else if (this.canProceed()) {
       this.step++;
       this.renderStep();
@@ -111,7 +115,7 @@ class MarvWidget {
   }
 
   handleBack() {
-    if (this.step > 1) {
+    if (this.step > 1 && this.step < 7) {
       this.step--;
       this.renderStep();
     }
@@ -124,6 +128,7 @@ class MarvWidget {
       case 3: return this.formData.postcode.trim().length > 0;
       case 4: return this.formData.description.trim().length > 10;
       case 5: return this.formData.images.length > 0;
+      case 6: return this.validationData !== null;
       default: return true;
     }
   }
@@ -139,11 +144,18 @@ class MarvWidget {
       step.classList.toggle('marv-progress-active', i + 1 <= this.step);
     });
 
-    backBtn.classList.toggle('marv-hidden', !(this.step > 1 && this.step < 6));
-    footer.classList.toggle('marv-hidden', this.step === 6);
-    progress.classList.toggle('marv-hidden', this.step === 6);
+    backBtn.classList.toggle('marv-hidden', !(this.step > 1 && this.step < 7));
+    footer.classList.toggle('marv-hidden', this.step === 7);
+    progress.classList.toggle('marv-hidden', this.step === 7);
 
-    continueBtn.textContent = this.step === 5 ? 'Analyse Damage' : 'Continue';
+    if (this.step === 5) {
+      continueBtn.textContent = 'Validate Images';
+    } else if (this.step === 6) {
+      continueBtn.textContent = 'Analyse Damage';
+    } else {
+      continueBtn.textContent = 'Continue';
+    }
+    
     continueBtn.disabled = !this.canProceed();
 
     switch (this.step) {
@@ -152,7 +164,8 @@ class MarvWidget {
       case 3: content.innerHTML = this.renderPostcodeStep(); break;
       case 4: content.innerHTML = this.renderDescriptionStep(); break;
       case 5: content.innerHTML = this.renderImagesStep(); this.attachImageHandlers(); break;
-      case 6: content.innerHTML = this.renderResultStep(); this.attachResultHandlers(); break;
+      case 6: content.innerHTML = this.renderValidationStep(); this.attachValidationHandlers(); break;
+      case 7: content.innerHTML = this.renderResultStep(); this.attachResultHandlers(); break;
     }
 
     this.attachInputHandlers();
@@ -224,6 +237,66 @@ class MarvWidget {
     `;
   }
 
+  renderValidationStep() {
+    if (!this.validationData) {
+      return '<div class="marv-loading"><div class="marv-loading-dots"><div></div><div></div><div></div></div><p>Analyzing images...</p></div>';
+    }
+
+    const validation = this.validationData;
+    
+    return `
+      <div class="marv-step">
+        <h3 class="marv-step-title">Confirm Image Analysis</h3>
+        <p class="marv-step-subtitle">${this.formData.images.length} image(s) detected</p>
+        
+        <div class="marv-validation-card">
+          <div class="marv-validation-section">
+            <label class="marv-validation-label">AI Summary:</label>
+            <p class="marv-validation-summary">${validation.summary}</p>
+          </div>
+
+          <div class="marv-validation-section">
+            <label class="marv-validation-label" for="material-select">Surface Material:</label>
+            <select id="material-select" class="marv-select">
+              <option value="${validation.material}" selected>${validation.material}</option>
+              <option value="Wood">Wood</option>
+              <option value="Laminate">Laminate</option>
+              <option value="Granite">Granite</option>
+              <option value="Marble">Marble</option>
+              <option value="Quartz">Quartz</option>
+              <option value="Tile">Tile</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+
+          <div class="marv-validation-section">
+            <label class="marv-validation-label" for="damage-select">Damage Type:</label>
+            <select id="damage-select" class="marv-select">
+              <option value="${validation.damageType}" selected>${validation.damageType}</option>
+              <option value="Scratch">Scratch</option>
+              <option value="Dent">Dent</option>
+              <option value="Crack">Crack</option>
+              <option value="Chip">Chip</option>
+              <option value="Burn">Burn</option>
+              <option value="Stain">Stain</option>
+              <option value="Wear">General Wear</option>
+            </select>
+          </div>
+
+          <div class="marv-validation-section">
+            <label class="marv-validation-label" for="notes-input">Additional Notes:</label>
+            <textarea id="notes-input" class="marv-textarea" rows="2" 
+              placeholder="Add any corrections or additional details...">${validation.notes || ''}</textarea>
+          </div>
+        </div>
+
+        <div class="marv-info-box">
+          <p>✓ Please review and correct any details before the final analysis</p>
+        </div>
+      </div>
+    `;
+  }
+
   renderResultStep() {
     if (!this.result) return '<div class="marv-loading">Loading...</div>';
     return `
@@ -237,15 +310,6 @@ class MarvWidget {
         </div>
         <div class="marv-info-box"><p>✓ A Magicman technician will review and confirm shortly.</p></div>
         <button id="marv-new-enquiry" class="marv-btn marv-btn-primary marv-btn-full">New Enquiry</button>
-      </div>
-    `;
-  }
-
-  renderLoadingState() {
-    return `
-      <div class="marv-loading">
-        <div class="marv-loading-dots"><div></div><div></div><div></div></div>
-        <p>Analysing your damage...</p>
       </div>
     `;
   }
@@ -280,6 +344,28 @@ class MarvWidget {
     );
   }
 
+  attachValidationHandlers() {
+    const materialSelect = document.getElementById('material-select');
+    const damageSelect = document.getElementById('damage-select');
+    const notesInput = document.getElementById('notes-input');
+
+    if (materialSelect) {
+      materialSelect.addEventListener('change', (e) => {
+        this.validationData.material = e.target.value;
+      });
+    }
+    if (damageSelect) {
+      damageSelect.addEventListener('change', (e) => {
+        this.validationData.damageType = e.target.value;
+      });
+    }
+    if (notesInput) {
+      notesInput.addEventListener('input', (e) => {
+        this.validationData.notes = e.target.value;
+      });
+    }
+  }
+
   attachResultHandlers() {
     const btn = document.getElementById('marv-new-enquiry');
     if (btn) btn.addEventListener('click', () => this.reset());
@@ -307,9 +393,44 @@ class MarvWidget {
     this.renderStep();
   }
 
-  async submitForm() {
+  async validateImages() {
     this.loading = true;
-    document.getElementById('marv-content').innerHTML = this.renderLoadingState();
+    document.getElementById('marv-content').innerHTML = '<div class="marv-loading"><div class="marv-loading-dots"><div></div><div></div><div></div></div><p>Analyzing images...</p></div>';
+    document.getElementById('marv-footer').classList.add('marv-hidden');
+
+    try {
+      const formData = new FormData();
+      formData.append('name', this.formData.name);
+      formData.append('email', this.formData.email);
+      formData.append('postcode', this.formData.postcode);
+      formData.append('description', this.formData.description);
+      formData.append('validation_only', 'true'); // Tell API this is validation only
+      this.formData.images.forEach(img => formData.append('images', img.file, img.file.name));
+
+      const res = await fetch(`${this.apiBase}/validate`, { method: 'POST', body: formData });
+      const data = await res.json();
+
+      if (!res.ok || !data.ok) throw new Error(data.error || 'Validation failed');
+
+      this.validationData = data.validation;
+      this.step = 6;
+      this.renderStep();
+      document.getElementById('marv-footer').classList.remove('marv-hidden');
+
+    } catch (err) {
+      console.error('Validation error:', err);
+      alert('Failed to analyze images. Please try again.');
+      this.step = 5;
+      this.renderStep();
+      document.getElementById('marv-footer').classList.remove('marv-hidden');
+    } finally {
+      this.loading = false;
+    }
+  }
+
+  async submitFinalAnalysis() {
+    this.loading = true;
+    document.getElementById('marv-content').innerHTML = '<div class="marv-loading"><div class="marv-loading-dots"><div></div><div></div><div></div></div><p>Performing final damage analysis...</p></div>';
     document.getElementById('marv-footer').classList.add('marv-hidden');
     document.getElementById('marv-progress').classList.add('marv-hidden');
 
@@ -319,6 +440,9 @@ class MarvWidget {
       formData.append('email', this.formData.email);
       formData.append('postcode', this.formData.postcode);
       formData.append('description', this.formData.description);
+      formData.append('validated_material', this.validationData.material);
+      formData.append('validated_damage_type', this.validationData.damageType);
+      formData.append('validated_notes', this.validationData.notes || '');
       this.formData.images.forEach(img => formData.append('images', img.file, img.file.name));
 
       const res = await fetch(`${this.apiBase}/triage`, { method: 'POST', body: formData });
@@ -326,17 +450,17 @@ class MarvWidget {
 
       if (!res.ok || !data.ok) throw new Error(data.error || 'AI analysis failed');
 
-      // ✅ Update here — match new API output
       this.result = data.result_text || 'No response received.';
-      this.step = 6;
+      this.step = 7;
       this.renderStep();
       this.resetTimer = setTimeout(() => this.reset(), 30000);
 
     } catch (err) {
       console.error('Error:', err);
       alert('Failed to analyse damage. Please try again.');
-      this.step = 5;
+      this.step = 6;
       this.renderStep();
+      document.getElementById('marv-footer').classList.remove('marv-hidden');
     } finally {
       this.loading = false;
     }
@@ -345,6 +469,7 @@ class MarvWidget {
   reset() {
     if (this.resetTimer) clearTimeout(this.resetTimer);
     this.formData = { name: '', email: '', postcode: '', description: '', images: [] };
+    this.validationData = null;
     this.result = null;
     this.step = 1;
     this.close();
