@@ -3,50 +3,111 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MARV Widget - Magicman AI</title>
+    <title>Marv - Magicman Automated Repair Validator</title>
     <link rel="stylesheet" href="widget/marv-widget.css">
     <style>
-        body {
+        * {
             margin: 0;
             padding: 0;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+            box-sizing: border-box;
         }
-        
-        /* Floating Chat Button */
-        .marv-chat-button {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            width: 60px;
-            height: 60px;
-            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
-            border-radius: 50%;
-            border: none;
-            cursor: pointer;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: transform 0.2s, box-shadow 0.2s;
-            z-index: 9998;
+            padding: 20px;
         }
-        
-        .marv-chat-button:hover {
-            transform: scale(1.1);
-            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+
+        .landing-container {
+            max-width: 1200px;
+            width: 100%;
         }
-        
-        .marv-chat-button svg {
-            width: 30px;
-            height: 30px;
+
+        .hero-section {
+            background: white;
+            border-radius: 20px;
+            padding: 60px 40px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            text-align: center;
+        }
+
+        .hero-section h1 {
+            font-size: 56px;
+            color: #1e3a8a;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .hero-section .subtitle {
+            font-size: 24px;
+            color: #60a5fa;
+            margin-bottom: 30px;
+            font-weight: 400;
+        }
+
+        .hero-section .description {
+            font-size: 18px;
+            color: #4b5563;
+            line-height: 1.6;
+            margin-bottom: 40px;
+            max-width: 700px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .cta-button {
+            display: inline-block;
+            padding: 18px 40px;
+            background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
             color: white;
+            text-decoration: none;
+            border-radius: 50px;
+            font-size: 18px;
+            font-weight: 600;
+            transition: transform 0.2s, box-shadow 0.2s;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
         }
-        
-        /* Hide button when widget is open */
-        .marv-chat-button.hidden {
-            display: none;
+
+        .cta-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(59, 130, 246, 0.6);
         }
-        
+
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 30px;
+            margin-top: 60px;
+        }
+
+        .feature {
+            text-align: center;
+        }
+
+        .feature-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+        }
+
+        .feature h3 {
+            font-size: 20px;
+            color: #1e3a8a;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        .feature p {
+            font-size: 16px;
+            color: #6b7280;
+            line-height: 1.5;
+        }
+
         /* Hide widget initially */
         #marv-widget {
             display: none;
@@ -54,12 +115,35 @@
     </style>
 </head>
 <body>
-    <!-- Floating Chat Button -->
-    <button class="marv-chat-button" id="marvChatButton" onclick="openWidget()">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-        </svg>
-    </button>
+    <div class="landing-container">
+        <div class="hero-section">
+            <h1>Marv</h1>
+            <p class="subtitle">Magicman Automated Repair Validator</p>
+            <p class="description">
+                AI-powered damage assessments for your surfaces. Simply describe the damage, 
+                upload photos, and receive a professional repair estimate in seconds.
+            </p>
+            <button class="cta-button" onclick="openWidget()">Try the Widget →</button>
+
+            <div class="features">
+                <div class="feature">
+                    <div class="feature-icon">⚡</div>
+                    <h3>AI Powered</h3>
+                    <p>Machine learning for accurate assessments</p>
+                </div>
+                <div class="feature">
+                    <div class="feature-icon">⚡</div>
+                    <h3>Instant Results</h3>
+                    <p>Get your estimate in seconds, not days</p>
+                </div>
+                <div class="feature">
+                    <div class="feature-icon">📸</div>
+                    <h3>Photo Analysis</h3>
+                    <p>Upload up to 9 images for detailed inspection</p>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- MARV Widget Container -->
     <div id="marv-widget"></div>
@@ -68,20 +152,8 @@
     <script>
         function openWidget() {
             const widget = document.getElementById('marv-widget');
-            const button = document.getElementById('marvChatButton');
             widget.style.display = 'block';
-            button.classList.add('hidden');
         }
-        
-        // Listen for widget close and show button again
-        document.addEventListener('click', function(e) {
-            if (e.target.id === 'marvCloseBtn' || e.target.closest('#marvCloseBtn')) {
-                setTimeout(() => {
-                    const button = document.getElementById('marvChatButton');
-                    button.classList.remove('hidden');
-                }, 100);
-            }
-        });
     </script>
 </body>
 </html>
