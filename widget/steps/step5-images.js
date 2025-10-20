@@ -1,4 +1,4 @@
-// Step 5: Image upload - Chat style
+// Step 5: Image upload - Chat style with better error handling
 import { userData } from '../core/state.js';
 import { CONFIG } from '../core/config.js';
 import { validateFile, validateImageCount } from '../utils/validators.js';
@@ -61,6 +61,9 @@ export async function showImageUploadStep() {
     
     nextBtn.addEventListener('click', async () => {
         if (userData.images.length > 0) {
+            // Disable button to prevent double-clicks
+            nextBtn.disabled = true;
+            
             removeLastInputArea();
             await addBotMessage(`Got it! I can see ${userData.images.length} image${userData.images.length > 1 ? 's' : ''}. Let me analyze ${userData.images.length > 1 ? 'them' : 'it'}... 🔍`, 100);
             
@@ -70,21 +73,84 @@ export async function showImageUploadStep() {
                 const result = await callValidateAPI();
                 hideTypingIndicator();
                 
+                // Check if we got a valid response
+                if (!result || !result.validation) {
+                    throw new Error('Invalid response from validation API');
+                }
+                
                 updateValidatedData({
-                    itemDescription: result.itemDescription || '',
-                    damageDescription: result.damageDescription || '',
-                    aiSummary: result.summary || '',
-                    surfaceMaterial: result.material || '',
-                    damageType: result.damageType || '',
+                    itemDescription: result.validation.itemDescription || '',
+                    damageDescription: result.validation.damageDescription || '',
+                    aiSummary: result.validation.summary || '',
+                    surfaceMaterial: result.validation.material || '',
+                    damageType: result.validation.damageType || '',
                     additionalNotes: '',
                     imageCount: userData.images.length
                 });
                 
                 showStep(6);
+                
             } catch (error) {
                 hideTypingIndicator();
                 console.error('Validation error:', error);
-                await addBotMessage("Oops! I had trouble analyzing those images. Please try again or upload different photos. 😕", 100);
+                
+                // Show friendly error message
+                await addBotMessage("Oops! I had trouble analyzing those images. This could be because:", 100);
+                await addBotMessage("• The images are unclear or too dark<br>• The damage isn't visible enough<br>• There's a temporary connection issue", 400);
+                await addBotMessage("Would you like to try uploading different photos? 📸", 700);
+                
+                // Re-show the upload interface
+                const retryArea = addInputArea(`
+                    <div class="marv-upload-area" id="retryUploadArea">
+                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="17 8 12 3 7 8"></polyline>
+                            <line x1="12" y1="3" x2="12" y2="15"></line>
+                        </svg>
+                        <p>Click or drag images here</p>
+                        <input type="file" id="retryFileInput" accept="image/*" multiple style="display: none;">
+                    </div>
+                    <div class="marv-image-preview" id="retryImagePreview"></div>
+                    <div class="marv-btn-group">
+                        <button class="marv-btn-secondary" id="retryBackBtn">Back</button>
+                        <button class="marv-btn" id="retryNextBtn" ${userData.images.length === 0 ? 'disabled' : ''}>
+                            Try Again (${userData.images.length}/${CONFIG.MAX_IMAGES})
+                        </button>
+                    </div>
+                    <details class="marv-debug-details" style="margin-top: 12px;">
+                        <summary>Technical Error Details</summary>
+                        <pre class="marv-debug-pre">${error.message}</pre>
+                    </details>
+                `);
+                
+                // Set up retry handlers
+                const retryUploadArea = retryArea.querySelector('#retryUploadArea');
+                const retryFileInput = retryArea.querySelector('#retryFileInput');
+                const retryPreview = retryArea.querySelector('#retryImagePreview');
+                const retryBackBtn = retryArea.querySelector('#retryBackBtn');
+                const retryNextBtn = retryArea.querySelector('#retryNextBtn');
+                
+                renderImagePreviews(retryPreview, retryNextBtn);
+                
+                retryUploadArea.addEventListener('click', () => retryFileInput.click());
+                retryUploadArea.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    retryUploadArea.classList.add('marv-upload-area-active');
+                });
+                retryUploadArea.addEventListener('dragleave', () => {
+                    retryUploadArea.classList.remove('marv-upload-area-active');
+                });
+                retryUploadArea.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    retryUploadArea.classList.remove('marv-upload-area-active');
+                    handleFiles(e.dataTransfer.files, retryPreview, retryNextBtn);
+                });
+                retryFileInput.addEventListener('change', (e) => {
+                    handleFiles(e.target.files, retryPreview, retryNextBtn);
+                });
+                
+                retryBackBtn.addEventListener('click', () => showStep(4));
+                retryNextBtn.addEventListener('click', () => nextBtn.click()); // Reuse the same logic
             }
         }
     });
@@ -133,6 +199,7 @@ function renderImagePreviews(container, nextBtn) {
         });
     });
 
-    nextBtn.textContent = `Analyze (${userData.images.length}/${CONFIG.MAX_IMAGES})`;
+    const buttonText = nextBtn.id === 'retryNextBtn' ? 'Try Again' : 'Analyze';
+    nextBtn.textContent = `${buttonText} (${userData.images.length}/${CONFIG.MAX_IMAGES})`;
     nextBtn.disabled = userData.images.length === 0;
 }
