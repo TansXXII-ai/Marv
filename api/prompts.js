@@ -1,5 +1,6 @@
 // api/prompts.js
 // Centralized AI prompts for easy maintenance and editing
+// Using CommonJS exports for Azure Functions compatibility
 
 /**
  * Validation prompt - Quick initial image analysis
@@ -8,7 +9,7 @@
  * Variables available:
  * - {description}: User's damage description
  */
-export const VALIDATION_PROMPT = `You are a surface repair expert for Magicman. Analyze these images in detail to provide:
+const VALIDATION_PROMPT = `You are a surface repair expert for Magicman. Analyze these images in detail to provide:
 
 1. ITEM DESCRIPTION: A detailed description of the main item visible in the images (e.g., "White ceramic bathtub", "Oak wood kitchen worktop", "Laminate bathroom vanity unit")
 
@@ -38,7 +39,7 @@ Be specific and detailed in your descriptions to help the customer understand wh
  * NOTE: This is NOT a full prompt - your Assistant already has the training.
  * This is just the user message to provide context about this specific case.
  */
-export const TRIAGE_MESSAGE = `Please analyze the following damage case:
+const TRIAGE_MESSAGE = `Please analyze the following damage case:
 
 Customer Information:
 - Name: {name}
@@ -56,14 +57,14 @@ Please review the attached images and provide your repair feasibility assessment
 /**
  * Helper function to build validation prompt with user data
  */
-export function buildValidationPrompt(description) {
+function buildValidationPrompt(description) {
   return VALIDATION_PROMPT.replace('{description}', description || 'No description provided');
 }
 
 /**
  * Helper function to build triage message for Assistant
  */
-export function buildTriageMessage(data) {
+function buildTriageMessage(data) {
   const {
     name = 'Unknown',
     email = 'Unknown',
@@ -87,7 +88,7 @@ export function buildTriageMessage(data) {
 /**
  * API configuration
  */
-export const API_CONFIG = {
+const API_CONFIG = {
   // Validation: Fast initial check using Chat Completions
   validation: {
     maxTokens: 500,
@@ -105,4 +106,13 @@ export const API_CONFIG = {
     temperature: null,  // null = use assistant's default
     maxTokens: null     // null = use assistant's default
   }
+};
+
+// CommonJS exports (required for Azure Functions)
+module.exports = {
+  VALIDATION_PROMPT,
+  TRIAGE_MESSAGE,
+  buildValidationPrompt,
+  buildTriageMessage,
+  API_CONFIG
 };
