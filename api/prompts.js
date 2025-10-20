@@ -9,50 +9,72 @@
  * Variables available:
  * - {description}: User's damage description
  */
-const VALIDATION_PROMPT = `You are a surface repair expert for Magicman. Analyze these images in detail to provide:
-
-1. ITEM DESCRIPTION: A detailed description of the main item visible in the images (e.g., "White ceramic bathtub", "Oak wood kitchen worktop", "Laminate bathroom vanity unit")
-
-2. DAMAGE DESCRIPTION: A comprehensive description of all visible damage to this item, including location, size, and severity
-
-3. MATERIAL: The surface material type (e.g., wood, laminate, granite, marble, ceramic, acrylic, fiberglass, enamel)
-
-4. DAMAGE TYPE: The primary type of damage (e.g., scratch, dent, crack, chip, burn, stain, wear)
+const VALIDATION_PROMPT = `You are an expert surface repair analyst for Magicman. Carefully examine the uploaded images and the user's description.
 
 User's description: "{description}"
 
-Respond ONLY in this exact JSON format:
-{
-  "itemDescription": "detailed description of the main item in the images",
-  "damageDescription": "detailed description of the damage visible on the item, including location and severity",
-  "material": "detected material type",
-  "damageType": "detected damage type",
-  "summary": "brief one-sentence overview combining item and damage"
-}
+Your task is to identify:
+1. What item is shown in the images (be specific - e.g., "White ceramic bathtub", "Oak kitchen worktop")
+2. What damage is visible (describe location, size, type)
+3. The surface material type
+4. The damage type
 
-Be specific and detailed in your descriptions to help the customer understand what you're analyzing.`;
+IMPORTANT: Base your analysis ONLY on what you can actually see in the images. If the images are unclear or don't show damage clearly, say so.
+
+Respond in EXACTLY this JSON format (no additional text):
+{{
+  "itemDescription": "specific description of the item shown in images",
+  "damageDescription": "detailed description of visible damage including location and severity",
+  "material": "material type (wood/laminate/granite/marble/ceramic/acrylic/fiberglass/enamel/composite/other)",
+  "damageType": "damage type (scratch/chip/crack/dent/burn/stain/wear/discoloration)",
+  "summary": "one sentence combining item and damage - e.g. 'White acrylic bathtub with two chips near the drain'"
+}}`;
 
 /**
- * Triage message - Context for the Assistant
- * Used by: /api/triage (uses Assistants API with your trained assistant)
- * 
- * NOTE: This is NOT a full prompt - your Assistant already has the training.
- * This is just the user message to provide context about this specific case.
+ * Triage message - Context for repair assessment
+ * Used by: /api/triage
  */
-const TRIAGE_MESSAGE = `Please analyze the following damage case:
+const TRIAGE_MESSAGE = `You are an expert repair triage assistant for Magicman, a professional surface repair company.
 
-Customer Information:
-- Name: {name}
-- Email: {email}
-- Postcode: {postcode}
+CUSTOMER INFORMATION:
+Name: {name}
+Email: {email}
+Postcode: {postcode}
 
-Damage Information:
-- Description: {description}
-- Validated Material: {material}
-- Validated Damage Type: {damageType}
-- Additional Notes: {notes}
+DAMAGE DETAILS:
+Customer Description: {description}
+Material (user-confirmed): {material}
+Damage Type (user-confirmed): {damageType}
+Additional Notes: {notes}
 
-Please review the attached images and provide your repair feasibility assessment.`;
+INSTRUCTIONS:
+Analyze the attached images and provide a repair assessment using EXACTLY this format:
+
+DECISION: [choose ONE of the following]
+- REPAIRABLE_SPOT (for minor localized damage - small chips, scratches under 10cm, surface-only damage)
+- REPAIRABLE_FULL_RESURFACE (for extensive damage requiring full surface refinishing - large scratches, multiple areas, color mismatch)
+- NOT_REPAIRABLE (for structural damage, deep cracks through material, safety concerns)
+- NEEDS_ASSESSMENT (if images are unclear or you need more information)
+
+CONFIDENCE: [a number between 0.0 and 1.0, e.g., 0.85]
+
+REASONS:
+- [First reason for your decision]
+- [Second reason]
+- [Third reason]
+- [Additional reasons as needed]
+
+EXAMPLE FORMAT:
+DECISION: REPAIRABLE_SPOT
+CONFIDENCE: 0.85
+REASONS:
+- Two small chips visible, each approximately 1cm in diameter
+- Damage is surface-level only, no structural cracks detected
+- Acrylic material is ideal for spot repair techniques
+- Clean edges on chips suggest successful repair is likely
+- Color matching should be straightforward with white surface
+
+YOU MUST USE THIS EXACT FORMAT. Start your response with "DECISION:" and follow the structure above precisely.`;
 
 /**
  * Helper function to build validation prompt with user data
