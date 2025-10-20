@@ -1,4 +1,5 @@
 const Busboy = require("busboy");
+const { buildValidationPrompt, API_CONFIG } = require("../prompts.js");
 
 const endpoint = process.env.AZURE_OPENAI_ENDPOINT || "https://magroupai.openai.azure.com";
 const apiKey = process.env.AZURE_OPENAI_API_KEY;
@@ -71,30 +72,12 @@ function makeDataUrl({ mimeType, buffer }) {
 }
 
 async function validateImages(imageDataUrls, description) {
+  // Use the centralized prompt builder
+  const promptText = buildValidationPrompt(description);
+  
   const contentParts = [{ 
     type: "text", 
-    text: `You are a surface repair expert for Magicman. Analyze these images in detail to provide:
-
-1. ITEM DESCRIPTION: A detailed description of the main item visible in the images (e.g., "White ceramic bathtub", "Oak wood kitchen worktop", "Laminate bathroom vanity unit")
-
-2. DAMAGE DESCRIPTION: A comprehensive description of all visible damage to this item, including location, size, and severity
-
-3. MATERIAL: The surface material type (e.g., wood, laminate, granite, marble, ceramic, acrylic, fiberglass, enamel)
-
-4. DAMAGE TYPE: The primary type of damage (e.g., scratch, dent, crack, chip, burn, stain, wear)
-
-User's description: "${description}"
-
-Respond ONLY in this exact JSON format:
-{
-  "itemDescription": "detailed description of the main item in the images",
-  "damageDescription": "detailed description of the damage visible on the item, including location and severity",
-  "material": "detected material type",
-  "damageType": "detected damage type",
-  "summary": "brief one-sentence overview combining item and damage"
-}
-
-Be specific and detailed in your descriptions to help the customer understand what you're analyzing.` 
+    text: promptText
   }];
   
   imageDataUrls.forEach(url => {
@@ -105,9 +88,7 @@ Be specific and detailed in your descriptions to help the customer understand wh
     method: "POST",
     body: JSON.stringify({
       messages: [{ role: "user", content: contentParts }],
-      max_tokens: 500,
-      temperature: 0.3,
-      response_format: { type: "json_object" }
+      ...API_CONFIG.validation  // Uses centralized config
     })
   });
 
