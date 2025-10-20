@@ -71,28 +71,36 @@ function makeDataUrl({ mimeType, buffer }) {
   return `data:${mimeType};base64,${buffer.toString("base64")}`;
 }
 
-async function validateImages(imageDataUrls, description) {
-  // Use the centralized prompt builder
+async function validateImages(imageDataUrls, description, context) {
+  context.log("Building validation prompt...");
   const promptText = buildValidationPrompt(description);
+  context.log("Prompt built, length:", promptText.length);
   
   const contentParts = [{ 
     type: "text", 
     text: promptText
   }];
   
-  imageDataUrls.forEach(url => {
+  context.log("Adding", imageDataUrls.length, "images to content");
+  imageDataUrls.forEach((url, index) => {
     contentParts.push({ type: "image_url", image_url: { url, detail: "high" } });
+    context.log(`Image ${index + 1}: ${url.substring(0, 50)}...`);
   });
 
+  context.log("Calling Azure OpenAI with config:", JSON.stringify(API_CONFIG.validation));
+  
   const response = await aoaiFetch({
     method: "POST",
     body: JSON.stringify({
       messages: [{ role: "user", content: contentParts }],
-      ...API_CONFIG.validation  // Uses centralized config
+      ...API_CONFIG.validation
     })
   });
 
+  context.log("Azure OpenAI responded successfully");
   const resultText = response.choices?.[0]?.message?.content || "{}";
+  context.log("Result text:", resultText);
+  
   return JSON.parse(resultText);
 }
 
@@ -108,34 +116,45 @@ module.exports = async function (context, req) {
     return;
   }
 
-  context.log("=== VALIDATE ENDPOINT ===");
+  context.log("=== VALIDATE ENDPOINT START ===");
+  context.log("Endpoint:", endpoint);
+  context.log("Deployment:", deploymentName);
+  context.log("API Version:", apiVersion);
+  context.log("API Key present:", !!apiKey);
 
   try {
     if (!endpoint || !apiKey || !deploymentName) {
+      context.log("ERROR: Missing config");
       return json(context, 500, { error: "Missing Azure OpenAI config" });
     }
 
     const ct = (req.headers && req.headers["content-type"]) || "";
     if (!ct.includes("multipart/form-data")) {
+      context.log("ERROR: Wrong content type:", ct);
       return json(context, 400, { error: "Content-Type must be multipart/form-data" });
     }
 
+    context.log("Parsing multipart form data...");
     const { fields, files } = await parseMultipart(req);
     const description = (fields.description || "").trim();
+    context.log("Description:", description);
+    context.log("Files received:", files.length);
 
     const imageDataUrls = files
       .filter(f => f.buffer && f.buffer.length > 0)
       .map(f => makeDataUrl(f));
 
-    context.log(`Validating ${imageDataUrls.length} images`);
+    context.log(`Processing ${imageDataUrls.length} valid images`);
 
     if (imageDataUrls.length === 0) {
+      context.log("ERROR: No valid images");
       return json(context, 400, { error: "At least one image required" });
     }
 
-    const validation = await validateImages(imageDataUrls, description);
+    context.log("Starting validation...");
+    const validation = await validateImages(imageDataUrls, description, context);
     
-    context.log("Validation result:", JSON.stringify(validation));
+    context.log("Validation complete:", JSON.stringify(validation));
 
     return json(context, 200, {
       ok: true,
@@ -150,7 +169,9 @@ module.exports = async function (context, req) {
     });
 
   } catch (err) {
-    context.log.error("Validation error:", err.message);
+    context.log.error("=== VALIDATION ERROR ===");
+    context.log.error("Error message:", err.message);
+    context.log.error("Error stack:", err.stack);
     return json(context, 500, { error: err.message });
   }
 };
