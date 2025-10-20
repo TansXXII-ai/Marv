@@ -91,9 +91,9 @@ function buildTriageMessage(data) {
 const API_CONFIG = {
   // Validation: Fast initial check using Chat Completions
   validation: {
-    maxTokens: 500,
+    max_tokens: 500,
     temperature: 0.3,
-    responseFormat: { type: "json_object" }
+    response_format: { type: "json_object" }
   },
   
   // Triage: Uses your trained Assistant
@@ -104,7 +104,7 @@ const API_CONFIG = {
     // Optional: Override assistant settings per run
     instructions: null, // null = use assistant's default instructions
     temperature: null,  // null = use assistant's default
-    maxTokens: null     // null = use assistant's default
+    max_tokens: null    // null = use assistant's default
   }
 };
 
