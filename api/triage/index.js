@@ -1,10 +1,10 @@
 const Busboy = require("busboy");
-const { buildTriageMessage, API_CONFIG } = require("../prompts.js");
+const { buildTriageMessage } = require("../prompts.js");
 
 const endpoint = process.env.AZURE_OPENAI_ENDPOINT || "https://magroupai.openai.azure.com";
 const apiKey = process.env.AZURE_OPENAI_API_KEY || process.env.AZURE_OPENAI_KEY;
+const deploymentName = process.env.AZURE_OPENAI_DEPLOYMENT || "gpt-4o-mini-version2024-07-18";
 const apiVersion = process.env.AZURE_OPENAI_API_VERSION || "2024-08-01-preview";
-const assistantId = process.env.AZURE_OPENAI_ASSISTANT_ID; // Your trained assistant ID
 
 function json(context, status, body) {
   context.res = {
@@ -20,8 +20,8 @@ function json(context, status, body) {
   };
 }
 
-async function aoaiFetch(path, options = {}) {
-  const url = `${endpoint}${path}?api-version=${encodeURIComponent(apiVersion)}`;
+async function aoaiFetch(deploymentName, options = {}) {
+  const url = `${endpoint}/openai/deployments/${deploymentName}/chat/completions?api-version=${encodeURIComponent(apiVersion)}`;
   const res = await fetch(url, {
     ...options,
     headers: {
@@ -68,145 +68,56 @@ function parseMultipart(req) {
   });
 }
 
-/**
- * Upload file to Azure OpenAI for use with Assistant
- */
-async function uploadFile(fileBuffer, filename, mimeType) {
-  const formData = new FormData();
-  const blob = new Blob([fileBuffer], { type: mimeType });
-  formData.append('file', blob, filename);
-  formData.append('purpose', 'assistants');
-
-  const url = `${endpoint}/openai/files?api-version=${apiVersion}`;
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'api-key': apiKey
-    },
-    body: formData
-  });
-
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`File upload failed: ${res.status} - ${text}`);
-  }
-
-  const result = await res.json();
-  return result.id; // Returns file ID
+function makeDataUrl({ mimeType, buffer }) {
+  return `data:${mimeType};base64,${buffer.toString("base64")}`;
 }
 
-/**
- * Create a thread with the Assistant
- */
-async function createThread() {
-  return await aoaiFetch('/openai/threads', {
-    method: 'POST',
-    body: JSON.stringify({})
+async function callChatCompletions(textPrompt, imageDataUrls) {
+  const contentParts = [{ type: "text", text: textPrompt }];
+  imageDataUrls.forEach(url => {
+    contentParts.push({ type: "image_url", image_url: { url, detail: "auto" } });
   });
-}
 
-/**
- * Add a message to the thread with file attachments
- */
-async function addMessage(threadId, content, fileIds = []) {
-  const attachments = fileIds.map(fileId => ({
-    file_id: fileId,
-    tools: [{ type: "file_search" }]
-  }));
-
-  return await aoaiFetch(`/openai/threads/${threadId}/messages`, {
-    method: 'POST',
+  return aoaiFetch(deploymentName, {
+    method: "POST",
     body: JSON.stringify({
-      role: "user",
-      content: content,
-      attachments: attachments.length > 0 ? attachments : undefined
+      messages: [{ role: "user", content: contentParts }],
+      max_tokens: 1000,
+      temperature: 0.7
     })
   });
-}
-
-/**
- * Run the assistant on the thread
- */
-async function runAssistant(threadId) {
-  return await aoaiFetch(`/openai/threads/${threadId}/runs`, {
-    method: 'POST',
-    body: JSON.stringify({
-      assistant_id: assistantId,
-      instructions: API_CONFIG.triage.instructions,
-      temperature: API_CONFIG.triage.temperature,
-      max_tokens: API_CONFIG.triage.maxTokens
-    })
-  });
-}
-
-/**
- * Poll for run completion
- */
-async function waitForRunCompletion(threadId, runId, maxAttempts = 60) {
-  for (let i = 0; i < maxAttempts; i++) {
-    const run = await aoaiFetch(`/openai/threads/${threadId}/runs/${runId}`, {
-      method: 'GET'
-    });
-
-    if (run.status === 'completed') {
-      return run;
-    } else if (run.status === 'failed' || run.status === 'cancelled' || run.status === 'expired') {
-      throw new Error(`Run ${run.status}: ${run.last_error?.message || 'Unknown error'}`);
-    }
-
-    // Wait 1 second before checking again
-    await new Promise(resolve => setTimeout(resolve, 1000));
-  }
-
-  throw new Error('Run timed out after 60 seconds');
-}
-
-/**
- * Get assistant's response from thread
- */
-async function getAssistantResponse(threadId) {
-  const messages = await aoaiFetch(`/openai/threads/${threadId}/messages`, {
-    method: 'GET'
-  });
-
-  // Get the last assistant message
-  const assistantMessages = messages.data.filter(m => m.role === 'assistant');
-  if (assistantMessages.length === 0) {
-    throw new Error('No assistant response found');
-  }
-
-  const lastMessage = assistantMessages[0];
-  const textContent = lastMessage.content.find(c => c.type === 'text');
-  
-  return textContent ? textContent.text.value : 'No text response';
 }
 
 module.exports = async function (context, req) {
-  // CORS preflight
+  // Set CORS headers on ALL responses
+  const corsHeaders = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Headers": "*"
+  };
+
   if (req.method === "OPTIONS") {
     context.res = {
       status: 204,
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-        "Access-Control-Allow-Headers": "*"
-      }
+      headers: corsHeaders
     };
     return;
   }
 
-  context.log("=== MARV TRIAGE (ASSISTANT API) START ===");
+  // DEBUG LOGGING
+  context.log("=== MARV TRIAGE START ===");
   context.log("Endpoint:", endpoint);
-  context.log("Assistant ID:", assistantId);
+  context.log("Deployment:", deploymentName);
   context.log("API Version:", apiVersion);
   context.log("API Key present:", !!apiKey);
+  context.log("API Key first 10 chars:", apiKey ? apiKey.substring(0, 10) + "..." : "MISSING");
+  context.log("Full URL will be:", `${endpoint}/openai/deployments/${deploymentName}/chat/completions?api-version=${apiVersion}`);
+  context.log("=== MARV DEBUG END ===");
 
   try {
-    if (!endpoint || !apiKey || !assistantId) {
-      context.log("ERROR: Missing config - endpoint:", !!endpoint, "apiKey:", !!apiKey, "assistantId:", !!assistantId);
-      return json(context, 500, { 
-        error: "Missing Azure OpenAI configuration. Please set AZURE_OPENAI_ASSISTANT_ID in environment variables." 
-      });
+    if (!endpoint || !apiKey || !deploymentName) {
+      context.log("ERROR: Missing config - endpoint:", !!endpoint, "apiKey:", !!apiKey, "deployment:", !!deploymentName);
+      return json(context, 500, { error: "Missing Azure OpenAI config" });
     }
 
     const ct = (req.headers && req.headers["content-type"]) || "";
@@ -214,85 +125,50 @@ module.exports = async function (context, req) {
       return json(context, 400, { error: "Content-Type must be multipart/form-data" });
     }
 
-    // Parse form data
     const { fields, files } = await parseMultipart(req);
     const name = (fields.name || "").trim();
     const email = (fields.email || "").trim();
     const postcode = (fields.postcode || "").trim();
     const description = (fields.description || "").trim();
-    const material = (fields.material || "").trim();
-    const damageType = (fields.damageType || "").trim();
-    const notes = (fields.notes || "").trim();
+    
+    // Get validated metadata from user confirmation
+    const validatedMaterial = (fields.material || "").trim();
+    const validatedDamageType = (fields.damageType || "").trim();
+    const validatedNotes = (fields.notes || "").trim();
 
-    context.log(`Processing triage for: ${name} (${email})`);
-    context.log(`Images received: ${files.length}`);
+    const imageDataUrls = files
+      .filter(f => f.buffer && f.buffer.length > 0)
+      .map(f => makeDataUrl(f));
 
-    if (files.length === 0) {
+    context.log(`Parsed form: name=${name}, email=${email}, images=${imageDataUrls.length}`);
+    context.log(`Validated data: material=${validatedMaterial}, damageType=${validatedDamageType}`);
+
+    if (imageDataUrls.length === 0) {
       return json(context, 400, { error: "At least one image required" });
     }
 
-    // Step 1: Upload all images to Azure OpenAI
-    context.log("Uploading images to Azure OpenAI...");
-    const fileIds = [];
-    for (const file of files) {
-      try {
-        const fileId = await uploadFile(file.buffer, file.filename, file.mimeType);
-        fileIds.push(fileId);
-        context.log(`Uploaded: ${file.filename} -> ${fileId}`);
-      } catch (err) {
-        context.log.error(`Failed to upload ${file.filename}:`, err.message);
-      }
-    }
-
-    if (fileIds.length === 0) {
-      throw new Error("Failed to upload any images");
-    }
-
-    // Step 2: Create a thread
-    context.log("Creating thread...");
-    const thread = await createThread();
-    context.log(`Thread created: ${thread.id}`);
-
-    // Step 3: Build message with context
-    const message = buildTriageMessage({
+    // Build prompt using centralized function
+    const prompt = buildTriageMessage({
       name,
       email,
       postcode,
       description,
-      material,
-      damageType,
-      notes
+      material: validatedMaterial,
+      damageType: validatedDamageType,
+      notes: validatedNotes
     });
 
-    // Step 4: Add message with image attachments
-    context.log("Adding message to thread...");
-    await addMessage(thread.id, message, fileIds);
+    context.log("Prompt built, calling Azure OpenAI...");
+    const response = await callChatCompletions(prompt, imageDataUrls);
+    context.log("Azure OpenAI responded successfully");
+    
+    const resultText = response.choices?.[0]?.message?.content || "No response";
 
-    // Step 5: Run the assistant
-    context.log("Running assistant...");
-    const run = await runAssistant(thread.id);
-    context.log(`Run started: ${run.id}`);
-
-    // Step 6: Wait for completion
-    context.log("Waiting for assistant response...");
-    await waitForRunCompletion(thread.id, run.id);
-
-    // Step 7: Get the response
-    context.log("Retrieving assistant response...");
-    const response = await getAssistantResponse(thread.id);
-
-    context.log("=== MARV TRIAGE (ASSISTANT API) SUCCESS ===");
-
-    return json(context, 200, { 
-      ok: true, 
-      result_text: response,
-      thread_id: thread.id,
-      run_id: run.id
-    });
+    return json(context, 200, { ok: true, result_text: resultText });
 
   } catch (err) {
     context.log.error("ERROR:", err.message);
-    context.log.error("Stack:", err.stack);
+    context.log.error("Full error:", JSON.stringify(err, null, 2));
     return json(context, 500, { error: err.message });
   }
 };
