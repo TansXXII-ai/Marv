@@ -99,6 +99,9 @@ export function showTypingIndicator() {
         initChatContainer();
     }
     
+    const existingTyping = document.getElementById('marvTypingIndicator');
+    if (existingTyping) return; // Don't add multiple typing indicators
+    
     const typingDiv = document.createElement('div');
     typingDiv.className = 'marv-message marv-message-bot';
     typingDiv.id = 'marvTypingIndicator';
@@ -116,10 +119,47 @@ export function showTypingIndicator() {
     scrollToBottom();
 }
 
+export function showAnalysisLoader(message = 'Analyzing...') {
+    if (!messageContainer) {
+        initChatContainer();
+    }
+    
+    const existingLoader = document.getElementById('marvAnalysisLoader');
+    if (existingLoader) existingLoader.remove();
+    
+    const loaderDiv = document.createElement('div');
+    loaderDiv.className = 'marv-message marv-message-bot';
+    loaderDiv.id = 'marvAnalysisLoader';
+    loaderDiv.innerHTML = `
+        <div class="marv-message-avatar">M</div>
+        <div class="marv-message-bubble">
+            <div class="marv-analysis-loader">
+                <div class="marv-analysis-spinner">
+                    <svg width="40" height="40" viewBox="0 0 50 50">
+                        <circle class="marv-spinner-track" cx="25" cy="25" r="20" fill="none" stroke-width="4"></circle>
+                        <circle class="marv-spinner-path" cx="25" cy="25" r="20" fill="none" stroke-width="4"></circle>
+                    </svg>
+                </div>
+                <p class="marv-analysis-text">${message}</p>
+                <div class="marv-analysis-progress">
+                    <div class="marv-progress-bar"></div>
+                </div>
+            </div>
+        </div>
+    `;
+    messageContainer.appendChild(loaderDiv);
+    scrollToBottom();
+}
+
 export function hideTypingIndicator() {
     const typingDiv = document.getElementById('marvTypingIndicator');
     if (typingDiv) {
         typingDiv.remove();
+    }
+    
+    const loaderDiv = document.getElementById('marvAnalysisLoader');
+    if (loaderDiv) {
+        loaderDiv.remove();
     }
 }
 
