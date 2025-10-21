@@ -19,13 +19,41 @@ export async function showValidationStep() {
     
     const analysisContent = `
         <div class="marv-validation-section">
-            <h5>🔍 Item Detected:</h5>
-            <textarea id="itemDescInput" class="marv-textarea" rows="2" style="margin-top: 8px;">${validatedData.itemDescription || 'Unable to determine item'}</textarea>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <h5 style="margin: 0;">🔍 Item Detected:</h5>
+                <button type="button" class="marv-edit-btn" id="editItemBtn" style="font-size: 12px; padding: 4px 10px;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                    </svg>
+                    Edit
+                </button>
+            </div>
+            <p id="itemDescDisplay" style="margin: 0; padding: 10px; background: white; border-radius: 8px; line-height: 1.5;">${validatedData.itemDescription || 'Unable to determine item'}</p>
+            <textarea id="itemDescInput" class="marv-textarea" rows="2" style="display: none; margin-top: 8px;">${validatedData.itemDescription || 'Unable to determine item'}</textarea>
+            <div id="itemDescActions" style="display: none; margin-top: 8px; gap: 8px;" class="marv-btn-group">
+                <button type="button" class="marv-btn-secondary" id="cancelItemBtn" style="flex: 0; padding: 6px 12px; font-size: 13px;">Cancel</button>
+                <button type="button" class="marv-btn-primary" id="saveItemBtn" style="flex: 0; padding: 6px 12px; font-size: 13px;">Save</button>
+            </div>
         </div>
         
         <div class="marv-validation-section damage">
-            <h5>⚠️ Damage Detected:</h5>
-            <textarea id="damageDescInput" class="marv-textarea" rows="3" style="margin-top: 8px;">${validatedData.damageDescription || 'Unable to determine damage'}</textarea>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <h5 style="margin: 0;">⚠️ Damage Detected:</h5>
+                <button type="button" class="marv-edit-btn" id="editDamageBtn" style="font-size: 12px; padding: 4px 10px;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                    </svg>
+                    Edit
+                </button>
+            </div>
+            <p id="damageDescDisplay" style="margin: 0; padding: 10px; background: white; border-radius: 8px; line-height: 1.5;">${validatedData.damageDescription || 'Unable to determine damage'}</p>
+            <textarea id="damageDescInput" class="marv-textarea" rows="3" style="display: none; margin-top: 8px;">${validatedData.damageDescription || 'Unable to determine damage'}</textarea>
+            <div id="damageDescActions" style="display: none; margin-top: 8px; gap: 8px;" class="marv-btn-group">
+                <button type="button" class="marv-btn-secondary" id="cancelDamageBtn" style="flex: 0; padding: 6px 12px; font-size: 13px;">Cancel</button>
+                <button type="button" class="marv-btn-primary" id="saveDamageBtn" style="flex: 0; padding: 6px 12px; font-size: 13px;">Save</button>
+            </div>
         </div>
         
         <div class="marv-form-group" style="margin-top: 16px;">
@@ -132,8 +160,20 @@ function buildDamageOptions(detectedDamage) {
 }
 
 function setupValidationEventListeners() {
+    const itemDescDisplay = document.getElementById('itemDescDisplay');
     const itemDescInput = document.getElementById('itemDescInput');
+    const itemDescActions = document.getElementById('itemDescActions');
+    const editItemBtn = document.getElementById('editItemBtn');
+    const saveItemBtn = document.getElementById('saveItemBtn');
+    const cancelItemBtn = document.getElementById('cancelItemBtn');
+    
+    const damageDescDisplay = document.getElementById('damageDescDisplay');
     const damageDescInput = document.getElementById('damageDescInput');
+    const damageDescActions = document.getElementById('damageDescActions');
+    const editDamageBtn = document.getElementById('editDamageBtn');
+    const saveDamageBtn = document.getElementById('saveDamageBtn');
+    const cancelDamageBtn = document.getElementById('cancelDamageBtn');
+    
     const materialSelect = document.getElementById('materialSelect');
     const damageSelect = document.getElementById('damageSelect');
     const notesInput = document.getElementById('notesInput');
@@ -145,13 +185,96 @@ function setupValidationEventListeners() {
         return;
     }
 
+    // Item Description Edit/Save/Cancel
+    if (editItemBtn) {
+        editItemBtn.addEventListener('click', () => {
+            itemDescDisplay.style.display = 'none';
+            itemDescInput.style.display = 'block';
+            itemDescActions.style.display = 'flex';
+            editItemBtn.style.display = 'none';
+            itemDescInput.focus();
+        });
+    }
+
+    if (saveItemBtn) {
+        saveItemBtn.addEventListener('click', () => {
+            const newValue = itemDescInput.value.trim();
+            if (newValue) {
+                itemDescDisplay.textContent = newValue;
+                itemDescDisplay.style.display = 'block';
+                itemDescInput.style.display = 'none';
+                itemDescActions.style.display = 'none';
+                editItemBtn.style.display = 'flex';
+                
+                // Update validated data
+                updateValidatedData({ itemDescription: newValue });
+            }
+        });
+    }
+
+    if (cancelItemBtn) {
+        cancelItemBtn.addEventListener('click', () => {
+            itemDescInput.value = itemDescDisplay.textContent;
+            itemDescDisplay.style.display = 'block';
+            itemDescInput.style.display = 'none';
+            itemDescActions.style.display = 'none';
+            editItemBtn.style.display = 'flex';
+        });
+    }
+
+    // Damage Description Edit/Save/Cancel
+    if (editDamageBtn) {
+        editDamageBtn.addEventListener('click', () => {
+            damageDescDisplay.style.display = 'none';
+            damageDescInput.style.display = 'block';
+            damageDescActions.style.display = 'flex';
+            editDamageBtn.style.display = 'none';
+            damageDescInput.focus();
+        });
+    }
+
+    if (saveDamageBtn) {
+        saveDamageBtn.addEventListener('click', () => {
+            const newValue = damageDescInput.value.trim();
+            if (newValue) {
+                damageDescDisplay.textContent = newValue;
+                damageDescDisplay.style.display = 'block';
+                damageDescInput.style.display = 'none';
+                damageDescActions.style.display = 'none';
+                editDamageBtn.style.display = 'flex';
+                
+                // Update validated data
+                updateValidatedData({ damageDescription: newValue });
+            }
+        });
+    }
+
+    if (cancelDamageBtn) {
+        cancelDamageBtn.addEventListener('click', () => {
+            damageDescInput.value = damageDescDisplay.textContent;
+            damageDescDisplay.style.display = 'block';
+            damageDescInput.style.display = 'none';
+            damageDescActions.style.display = 'none';
+            editDamageBtn.style.display = 'flex';
+        });
+    }
+
     backBtn.addEventListener('click', () => showStep(5));
     
     nextBtn.addEventListener('click', async () => {
+        // Get current values (either from display or input if currently editing)
+        const itemDesc = itemDescDisplay.style.display === 'none' 
+            ? itemDescInput?.value.trim() 
+            : itemDescDisplay?.textContent.trim();
+            
+        const damageDesc = damageDescDisplay.style.display === 'none'
+            ? damageDescInput?.value.trim()
+            : damageDescDisplay?.textContent.trim();
+        
         // Update all validated data from user inputs
         updateValidatedData({
-            itemDescription: itemDescInput?.value.trim() || validatedData.itemDescription,
-            damageDescription: damageDescInput?.value.trim() || validatedData.damageDescription,
+            itemDescription: itemDesc || validatedData.itemDescription,
+            damageDescription: damageDesc || validatedData.damageDescription,
             surfaceMaterial: materialSelect?.value || validatedData.surfaceMaterial,
             damageType: damageSelect?.value || validatedData.damageType,
             additionalNotes: notesInput?.value.trim() || ''
