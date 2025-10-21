@@ -1,4 +1,4 @@
-// Step 7: Results display - Chat style
+// Step 7: Results display - Chat style (Fixed to remove AI Summary Edit)
 import { validatedData, resetState, widgetContainer } from '../core/state.js';
 import { getDecisionColor, getDecisionLabel } from '../utils/helpers.js';
 import { parseAIResponse } from '../parsers/ai-response.js';
@@ -6,13 +6,10 @@ import { showStep } from './step-router.js';
 import { addBotMessageWithContent } from '../utils/chat-helpers.js';
 
 export async function showResultsWithData(triageResponse) {
-    const parsed = parseAIResponse(triageResponse.result);
+    // Parse the result_text from the API response
+    const resultText = triageResponse.result_text || triageResponse.result || '';
+    const parsed = parseAIResponse(resultText);
     const color = getDecisionColor(parsed.decision);
-    
-    // Enhanced AI summary with material
-    const enhancedSummary = validatedData.surfaceMaterial 
-        ? `<strong>Material:</strong> ${validatedData.surfaceMaterial}. ${validatedData.aiSummary || 'No summary available'}`
-        : validatedData.aiSummary || 'No summary available';
     
     const resultsContent = `
         <div class="marv-decision-card" style="border-color: ${color};">
@@ -39,43 +36,22 @@ export async function showResultsWithData(triageResponse) {
             </div>
         </div>
 
-        <div class="marv-summary-card">
-            <div class="marv-summary-header">
-                <h4>AI Summary</h4>
-                <button type="button" class="marv-edit-btn" id="editSummaryBtn">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                    </svg>
-                    Edit
-                </button>
-            </div>
-            <div class="marv-summary-content">
-                <div id="summaryDisplay" class="marv-summary-display">
-                    ${enhancedSummary}
-                </div>
-                <div id="summaryEdit" class="marv-summary-edit" style="display: none;">
-                    <textarea 
-                        id="summaryTextarea" 
-                        class="marv-summary-textarea"
-                        rows="4"
-                    >${enhancedSummary.replace(/<[^>]*>/g, '')}</textarea>
-                    <div class="marv-summary-actions">
-                        <button type="button" class="marv-btn-secondary" id="cancelEditBtn">Cancel</button>
-                        <button type="button" class="marv-btn-primary" id="saveEditBtn">Save</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
         <div class="marv-info-card" style="margin-top: 12px;">
             <button type="button" class="marv-accordion-btn" id="toggleDetailsBtn">
-                <span>Additional Information</span>
+                <span>Assessment Details</span>
                 <svg class="marv-accordion-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <polyline points="6 9 12 15 18 9"></polyline>
                 </svg>
             </button>
             <div class="marv-accordion-content" id="detailsContent" style="display: none;">
+                <div class="marv-detail-row">
+                    <span class="marv-detail-label">Item:</span>
+                    <span class="marv-detail-value">${validatedData.itemDescription || 'Not specified'}</span>
+                </div>
+                <div class="marv-detail-row">
+                    <span class="marv-detail-label">Damage:</span>
+                    <span class="marv-detail-value">${validatedData.damageDescription || 'Not specified'}</span>
+                </div>
                 <div class="marv-detail-row">
                     <span class="marv-detail-label">Surface Material:</span>
                     <span class="marv-detail-value">${validatedData.surfaceMaterial || 'Unknown'}</span>
@@ -132,7 +108,7 @@ export async function showResultsWithData(triageResponse) {
 
         <details class="marv-debug-details">
             <summary>Raw AI Response (Debug)</summary>
-            <pre class="marv-debug-pre">${triageResponse.result}</pre>
+            <pre class="marv-debug-pre">${resultText}</pre>
         </details>
     `;
     
@@ -140,51 +116,11 @@ export async function showResultsWithData(triageResponse) {
     
     // Wait for DOM to be ready
     setTimeout(() => {
-        setupResultsEventListeners(enhancedSummary);
+        setupResultsEventListeners();
     }, 100);
 }
 
-function setupResultsEventListeners(originalSummary) {
-    const editBtn = document.getElementById('editSummaryBtn');
-    const cancelBtn = document.getElementById('cancelEditBtn');
-    const saveBtn = document.getElementById('saveEditBtn');
-    const summaryDisplay = document.getElementById('summaryDisplay');
-    const summaryEdit = document.getElementById('summaryEdit');
-    const summaryTextarea = document.getElementById('summaryTextarea');
-
-    if (editBtn) {
-        editBtn.addEventListener('click', () => {
-            summaryDisplay.style.display = 'none';
-            summaryEdit.style.display = 'block';
-            summaryTextarea.focus();
-        });
-    }
-
-    if (cancelBtn) {
-        cancelBtn.addEventListener('click', () => {
-            summaryTextarea.value = originalSummary.replace(/<[^>]*>/g, '');
-            summaryDisplay.style.display = 'block';
-            summaryEdit.style.display = 'none';
-        });
-    }
-
-    if (saveBtn) {
-        saveBtn.addEventListener('click', () => {
-            const newSummary = summaryTextarea.value.trim();
-            if (newSummary) {
-                summaryDisplay.innerHTML = newSummary;
-                summaryDisplay.style.display = 'block';
-                summaryEdit.style.display = 'none';
-                
-                console.log('User corrected summary:', {
-                    original: originalSummary,
-                    corrected: newSummary,
-                    timestamp: new Date().toISOString()
-                });
-            }
-        });
-    }
-
+function setupResultsEventListeners() {
     const toggleBtn = document.getElementById('toggleDetailsBtn');
     const detailsContent = document.getElementById('detailsContent');
     const accordionIcon = toggleBtn?.querySelector('.marv-accordion-icon');
@@ -214,8 +150,7 @@ function setupResultsEventListeners(originalSummary) {
     if (termsBtn) {
         termsBtn.addEventListener('click', () => {
             // TODO: Link to actual terms and conditions page
-            alert('Terms & Conditions will be displayed here. Link to be provided.');
-            console.log('Terms & Conditions clicked - add link to T&C document');
+            window.open('https://www.magicman.co.uk/terms-conditions', '_blank');
         });
     }
 
