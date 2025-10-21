@@ -1,11 +1,16 @@
-// State management
+// State management - Updated with new customer fields
 export let currentStep = 1;
 export let userData = {
     name: '',
-    email: '',
-    postcode: '',
     description: '',
-    images: []
+    images: [],
+    // New customer detail fields
+    fullName: '',
+    address: '',
+    postcode: '',
+    phone: '',
+    email: '',
+    timing: ''
 };
 export let validatedData = {};
 
@@ -36,10 +41,14 @@ export function resetState() {
     currentStep = 1;
     userData = {
         name: '',
-        email: '',
-        postcode: '',
         description: '',
-        images: []
+        images: [],
+        fullName: '',
+        address: '',
+        postcode: '',
+        phone: '',
+        email: '',
+        timing: ''
     };
     validatedData = {};
 }
