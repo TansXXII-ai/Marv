@@ -1,3 +1,833 @@
+/* MARV Widget - Conversational Chat Style */
+
+/* Widget Container */
+#marv-widget {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 9999;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+}
+
+.marv-widget-container {
+    width: 400px;
+    max-height: 600px;
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Header */
+.marv-widget-header {
+    background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+    color: white;
+    padding: 20px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.marv-logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 600;
+    font-size: 18px;
+}
+
+.marv-status-dot {
+    width: 10px;
+    height: 10px;
+    background: #10b981;
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+}
+
+@keyframes pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+    }
+    50% {
+        box-shadow: 0 0 0 6px rgba(16, 185, 129, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+    }
+}
+
+.marv-close-btn {
+    background: transparent;
+    border: none;
+    color: white;
+    cursor: pointer;
+    padding: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: background 0.2s;
+}
+
+.marv-close-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+/* Content Area - Chat Style */
+.marv-widget-content {
+    padding: 24px 20px;
+    overflow-y: auto;
+    max-height: 520px;
+    background: #f3f4f6;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.marv-widget-content::-webkit-scrollbar {
+    width: 6px;
+}
+
+.marv-widget-content::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.marv-widget-content::-webkit-scrollbar-thumb {
+    background: #d1d5db;
+    border-radius: 3px;
+}
+
+.marv-widget-content::-webkit-scrollbar-thumb:hover {
+    background: #9ca3af;
+}
+
+/* Chat Messages */
+.marv-chat-container {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    padding-bottom: 10px;
+}
+
+.marv-message {
+    display: flex;
+    gap: 12px;
+    animation: messageSlideIn 0.4s ease-out;
+    align-items: flex-end;
+}
+
+@keyframes messageSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(15px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Bot Messages (left side) */
+.marv-message-bot {
+    align-items: flex-end;
+    justify-content: flex-start;
+}
+
+.marv-message-bot .marv-message-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    color: white;
+    font-weight: 700;
+    font-size: 16px;
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+}
+
+.marv-message-bot .marv-message-bubble {
+    background: white;
+    border-radius: 18px 18px 18px 4px;
+    padding: 14px 18px;
+    max-width: 70%;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+    border: 1px solid #f0f0f0;
+}
+
+/* User Messages (right side) */
+.marv-message-user {
+    align-items: flex-end;
+    flex-direction: row-reverse;
+    justify-content: flex-start;
+}
+
+.marv-message-user .marv-message-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    color: white;
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+}
+
+.marv-message-user .marv-message-avatar svg {
+    width: 20px;
+    height: 20px;
+}
+
+.marv-message-user .marv-message-bubble {
+    background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
+    color: white;
+    border-radius: 18px 18px 4px 18px;
+    padding: 14px 18px;
+    max-width: 70%;
+    box-shadow: 0 2px 12px rgba(59, 130, 246, 0.3);
+}
+
+/* Message Content */
+.marv-message-text {
+    margin: 0;
+    line-height: 1.6;
+    font-size: 15px;
+    word-wrap: break-word;
+}
+
+.marv-message-text strong {
+    font-weight: 600;
+}
+
+/* Input Area */
+.marv-input-area {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 8px;
+    padding: 0 48px;
+}
+
+.marv-input,
+.marv-textarea,
+.marv-select {
+    width: 100%;
+    padding: 14px 16px;
+    border: 2px solid #e5e7eb;
+    border-radius: 12px;
+    font-size: 15px;
+    font-family: inherit;
+    transition: all 0.2s;
+    background: white;
+}
+
+.marv-input:focus,
+.marv-textarea:focus,
+.marv-select:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+}
+
+.marv-textarea {
+    resize: vertical;
+    min-height: 90px;
+}
+
+/* Buttons */
+.marv-btn-group {
+    display: flex;
+    gap: 8px;
+}
+
+.marv-btn,
+.marv-btn-primary,
+.marv-btn-secondary {
+    padding: 12px 20px;
+    border-radius: 12px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: none;
+    flex: 1;
+}
+
+.marv-btn,
+.marv-btn-primary {
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    color: white;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.marv-btn:hover,
+.marv-btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4);
+}
+
+.marv-btn:disabled,
+.marv-btn-primary:disabled {
+    background: #9ca3af;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+.marv-btn-secondary {
+    background: white;
+    color: #374151;
+    border: 2px solid #e5e7eb;
+    box-shadow: none;
+}
+
+.marv-btn-secondary:hover {
+    background: #f9fafb;
+    border-color: #d1d5db;
+}
+
+/* Upload Area */
+.marv-upload-area {
+    border: 2px dashed #d1d5db;
+    border-radius: 12px;
+    padding: 30px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: white;
+}
+
+.marv-upload-area:hover,
+.marv-upload-area-active {
+    border-color: #3b82f6;
+    background: #eff6ff;
+}
+
+.marv-upload-area svg {
+    color: #3b82f6;
+    margin-bottom: 8px;
+}
+
+.marv-upload-area p {
+    margin: 0;
+    color: #6b7280;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+/* Image Preview */
+.marv-image-preview {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin: 12px 0;
+}
+
+.marv-image-item {
+    position: relative;
+    aspect-ratio: 1;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 2px solid #e5e7eb;
+    background: white;
+}
+
+.marv-image-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.marv-image-remove {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 22px;
+    height: 22px;
+    background: rgba(239, 68, 68, 0.95);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    font-size: 14px;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+    transition: all 0.2s;
+}
+
+.marv-image-remove:hover {
+    background: #dc2626;
+    transform: scale(1.1);
+}
+
+/* Info Cards in Chat Style */
+.marv-info-card {
+    background: white;
+    border-radius: 12px;
+    padding: 16px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.marv-info-card h4 {
+    margin: 0 0 12px 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: #374151;
+}
+
+.marv-info-card p {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.6;
+    color: #6b7280;
+}
+
+/* Validation Card */
+.marv-validation-section {
+    background: #f3f4f6;
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin: 8px 0;
+}
+
+.marv-validation-section.damage {
+    background: #fef3c7;
+    border-left: 4px solid #f59e0b;
+}
+
+.marv-validation-section h5 {
+    margin: 0 0 6px 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: #374151;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.marv-validation-section p {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.5;
+    color: #1f2937;
+}
+
+/* Form Groups */
+.marv-form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: 10px 0;
+}
+
+.marv-form-group label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #374151;
+}
+
+/* Results Display */
+.marv-decision-card {
+    border: 3px solid #e5e7eb;
+    border-radius: 14px;
+    overflow: hidden;
+    background: white;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    margin: 8px 0;
+}
+
+.marv-decision-header {
+    padding: 16px;
+    color: white;
+    text-align: center;
+}
+
+.marv-decision-header h3 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 700;
+}
+
+.marv-decision-body {
+    padding: 16px;
+}
+
+/* Confidence Bar */
+.marv-confidence {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+}
+
+.marv-confidence-label {
+    font-weight: 600;
+    color: #374151;
+    min-width: 80px;
+    font-size: 13px;
+}
+
+.marv-confidence-bar {
+    flex: 1;
+    height: 20px;
+    background: #e5e7eb;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.marv-confidence-fill {
+    height: 100%;
+    transition: width 0.8s ease-out;
+    border-radius: 10px;
+}
+
+.marv-confidence-value {
+    font-weight: 700;
+    color: #374151;
+    min-width: 40px;
+    text-align: right;
+    font-size: 15px;
+}
+
+/* Reasons List */
+.marv-reasons {
+    margin-top: 12px;
+}
+
+.marv-reasons h4 {
+    margin: 0 0 10px 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: #374151;
+}
+
+.marv-reasons ul {
+    margin: 0;
+    padding-left: 18px;
+    list-style-type: none;
+}
+
+.marv-reasons li {
+    margin-bottom: 8px;
+    color: #4b5563;
+    line-height: 1.5;
+    font-size: 14px;
+    padding-left: 16px;
+    position: relative;
+}
+
+.marv-reasons li:before {
+    content: "•";
+    position: absolute;
+    left: 0;
+    color: #3b82f6;
+    font-weight: bold;
+    font-size: 16px;
+}
+
+/* Summary Card */
+.marv-summary-card {
+    background: white;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    margin: 10px 0;
+}
+
+.marv-summary-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 16px;
+    background: #f9fafb;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.marv-summary-header h4 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: #374151;
+}
+
+.marv-edit-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: white;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    color: #374151;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.marv-edit-btn:hover {
+    background: #f3f4f6;
+    border-color: #3b82f6;
+    color: #3b82f6;
+}
+
+.marv-edit-btn svg {
+    width: 14px;
+    height: 14px;
+}
+
+.marv-summary-content {
+    padding: 16px;
+}
+
+.marv-summary-display {
+    color: #4b5563;
+    line-height: 1.6;
+    font-size: 14px;
+}
+
+.marv-summary-edit {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.marv-summary-textarea {
+    width: 100%;
+    padding: 10px;
+    border: 2px solid #d1d5db;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 14px;
+    line-height: 1.5;
+    resize: vertical;
+    min-height: 80px;
+}
+
+.marv-summary-textarea:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+}
+
+.marv-summary-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+}
+
+.marv-summary-actions .marv-btn-primary,
+.marv-summary-actions .marv-btn-secondary {
+    width: auto;
+    padding: 8px 16px;
+    font-size: 14px;
+    flex: 0;
+}
+
+/* Accordion */
+.marv-accordion-btn {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 16px;
+    background: white;
+    border: none;
+    cursor: pointer;
+    font-size: 15px;
+    font-weight: 600;
+    color: #374151;
+    transition: background 0.2s;
+}
+
+.marv-accordion-btn:hover {
+    background: #f9fafb;
+}
+
+.marv-accordion-icon {
+    transition: transform 0.3s;
+    color: #6b7280;
+}
+
+.marv-accordion-content {
+    padding: 16px;
+    border-top: 1px solid #e5e7eb;
+    background: #f9fafb;
+}
+
+.marv-detail-row {
+    display: flex;
+    padding: 10px 0;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.marv-detail-row:last-child {
+    border-bottom: none;
+}
+
+.marv-detail-label {
+    font-weight: 600;
+    color: #6b7280;
+    min-width: 140px;
+    font-size: 13px;
+}
+
+.marv-detail-value {
+    color: #374151;
+    flex: 1;
+    font-size: 13px;
+}
+
+/* Results Actions */
+.marv-results-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 12px;
+}
+
+.marv-results-actions .marv-btn-primary {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.marv-btn-primary svg,
+.marv-btn-secondary svg {
+    flex-shrink: 0;
+}
+
+/* Loading State */
+.marv-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+    text-align: center;
+}
+
+.marv-spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid #e5e7eb;
+    border-top-color: #3b82f6;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 12px;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.marv-loading p {
+    margin: 0;
+    color: #6b7280;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+/* Error State */
+.marv-error {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+    text-align: center;
+}
+
+.marv-error svg {
+    margin-bottom: 12px;
+    color: #ef4444;
+}
+
+.marv-error p {
+    margin: 0 0 20px 0;
+    color: #6b7280;
+    font-size: 14px;
+}
+
+/* Debug Details */
+.marv-debug-details {
+    margin-top: 8px;
+    padding: 10px;
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+}
+
+.marv-debug-details summary {
+    cursor: pointer;
+    font-size: 12px;
+    color: #6b7280;
+    font-weight: 600;
+}
+
+.marv-debug-details summary:hover {
+    color: #374151;
+}
+
+.marv-debug-pre {
+    margin: 10px 0 0 0;
+    padding: 10px;
+    background: #1f2937;
+    color: #f3f4f6;
+    border-radius: 6px;
+    font-size: 11px;
+    line-height: 1.4;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+/* Typing Indicator */
+.marv-typing {
+    display: flex;
+    gap: 5px;
+    padding: 16px 18px;
+    align-items: center;
+}
+
+.marv-typing-dot {
+    width: 8px;
+    height: 8px;
+    background: #9ca3af;
+    border-radius: 50%;
+    animation: typingBounce 1.4s infinite ease-in-out;
+}
+
+.marv-typing-dot:nth-child(2) {
+    animation-delay: 0.2s;
+}
+
+.marv-typing-dot:nth-child(3) {
+    animation-delay: 0.4s;
+}
+
+@keyframes typingBounce {
+    0%, 60%, 100% {
+        transform: translateY(0);
+        opacity: 0.6;
+    }
+    30% {
+        transform: translateY(-8px);
+        opacity: 1;
+    }
+}
+
 /* Analysis Loader - More visually appealing than typing indicator */
 .marv-analysis-loader {
     display: flex;
@@ -203,8 +1033,59 @@
     border-top: 2px solid #f3f4f6;
 }
 
-/* Responsive Updates for New Components */
+/* Responsive */
 @media (max-width: 640px) {
+    #marv-widget {
+        bottom: 0;
+        right: 0;
+        left: 0;
+    }
+
+    .marv-widget-container {
+        width: 100%;
+        max-height: 100vh;
+        border-radius: 0;
+    }
+
+    .marv-widget-content {
+        max-height: calc(100vh - 80px);
+    }
+
+    .marv-image-preview {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .marv-message-bot .marv-message-bubble,
+    .marv-message-user .marv-message-bubble {
+        max-width: 80%;
+    }
+
+    .marv-input-area {
+        padding: 0 20px;
+    }
+
+    .marv-confidence {
+        flex-wrap: wrap;
+    }
+    
+    .marv-confidence-bar {
+        width: 100%;
+        order: 3;
+    }
+    
+    .marv-results-actions {
+        grid-template-columns: 1fr;
+    }
+    
+    .marv-detail-row {
+        flex-direction: column;
+        gap: 4px;
+    }
+    
+    .marv-detail-label {
+        min-width: auto;
+    }
+    
     .marv-price-value {
         font-size: 28px;
     }
