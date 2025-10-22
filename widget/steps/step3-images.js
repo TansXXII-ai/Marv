@@ -1,6 +1,6 @@
 // Step 3: Image upload - Chat style with photo guidance
 import { userData } from '../core/state.js';
-import { CONFIG } from '../core/config.js';
+import { CONFIG } from '../../shared/config.js';
 import { validateFile, validateImageCount } from '../utils/validators.js';
 import { showStep } from './step-router.js';
 import { addBotMessage, addBotMessageWithContent, addInputArea, removeLastInputArea, showTypingIndicator, hideTypingIndicator, showAnalysisLoader } from '../utils/chat-helpers.js';
