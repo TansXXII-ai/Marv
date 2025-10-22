@@ -1,4 +1,95 @@
-// AI response parsing - HANDLES BOTH TEXT AND JSON FORMATS
+// shared/api.js - API communication functions used by both widget and form
+// This file should be located at: /shared/api.js
+
+// Helper function to convert data URI to Blob
+function dataURItoBlob(dataURI) {
+    const byteString = atob(dataURI.split(',')[1]);
+    const mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0];
+    const ab = new ArrayBuffer(byteString.length);
+    const ia = new Uint8Array(ab);
+    for (let i = 0; i < byteString.length; i++) {
+        ia[i] = byteString.charCodeAt(i);
+    }
+    return new Blob([ab], { type: mimeString });
+}
+
+// API Base URL
+const API_BASE_URL = 'https://ashy-forest-06915f903.2.azurestaticapps.net/api';
+
+/**
+ * Call the validation API to analyze images
+ * @param {Object} formData - Object containing description and images array
+ * @returns {Promise<Object>} - Validation response
+ */
+export async function callValidateAPI(formData) {
+    const data = new FormData();
+    data.append('description', formData.description || '');
+    
+    if (formData.images && formData.images.length > 0) {
+        formData.images.forEach((img) => {
+            const blob = dataURItoBlob(img.data);
+            data.append('images', blob, img.name);
+        });
+    }
+
+    const response = await fetch(`${API_BASE_URL}/validate`, {
+        method: 'POST',
+        body: data
+    });
+
+    if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Validation failed: ${response.statusText} - ${errorText}`);
+    }
+
+    return await response.json();
+}
+
+/**
+ * Call the triage API for full repair analysis
+ * @param {Object} combinedData - Object containing all form data
+ * @returns {Promise<Object>} - Triage response
+ */
+export async function callTriageAPI(combinedData) {
+    const data = new FormData();
+    
+    // Basic user info
+    data.append('name', combinedData.name || '');
+    data.append('email', combinedData.email || '');
+    data.append('postcode', combinedData.postcode || '');
+    data.append('description', combinedData.description || '');
+    
+    // Validated metadata
+    data.append('material', combinedData.surfaceMaterial || '');
+    data.append('damageType', combinedData.damageType || '');
+    data.append('notes', combinedData.additionalNotes || '');
+    
+    // Images
+    if (combinedData.images && combinedData.images.length > 0) {
+        combinedData.images.forEach((img) => {
+            const blob = dataURItoBlob(img.data);
+            data.append('images', blob, img.name);
+        });
+    }
+
+    const response = await fetch(`${API_BASE_URL}/triage`, {
+        method: 'POST',
+        body: data
+    });
+
+    if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Triage failed: ${response.statusText} - ${errorText}`);
+    }
+
+    return await response.json();
+}
+
+/**
+ * AI response parsing - HANDLES BOTH TEXT AND JSON FORMATS
+ * @param {string} rawResponse - The raw AI response text
+ * @returns {Object} - Parsed response with decision, confidence, and reasons
+ */
 export function parseAIResponse(rawResponse) {
     const result = {
         decision: 'UNKNOWN',
