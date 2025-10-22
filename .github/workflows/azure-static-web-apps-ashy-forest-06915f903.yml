@@ -32,6 +32,12 @@ jobs:
           npm install
           npm run build
           
+      - name: Build Form
+        run: |
+          cd form
+          npm install
+          npm run build
+          
       - name: Install OIDC Client from Core Package
         run: npm install @actions/core@1.6.0 @actions/http-client
         
