@@ -2,8 +2,7 @@
 // This can run alongside the chatbot on the same page
 
 import { CONFIG } from '../shared/config.js';
-import { callValidateAPI, callTriageAPI } from './shared/api.js';
-import { parseAIResponse } from './shared/parsers/ai-response.js';
+import { callValidateAPI, callTriageAPI, parseAIResponse } from '../shared/api.js';
 
 class MARVForm {
     constructor(containerId) {
