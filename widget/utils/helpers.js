@@ -1,5 +1,5 @@
 // Helper functions
-import { DECISION_COLORS, DECISION_LABELS } from '../../shared/config.js'';
+import { DECISION_COLORS, DECISION_LABELS } from '../../shared/config.js';
 
 export function getDecisionColor(decision) {
     return DECISION_COLORS[decision] || DECISION_COLORS.DEFAULT;
