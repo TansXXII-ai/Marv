@@ -1,5 +1,5 @@
 // Step 5: Results display - Condensed with pricing
-import { validatedData, resetState, widgetContainer } from '../core/state.js';
+import { validatedData, resetState, widgetContainer } from '../../shared/config.js';
 import { getDecisionColor, getDecisionLabel } from '../utils/helpers.js';
 import { getJobDuration, getPrice } from '../core/config.js';
 import { parseAIResponse } from '../parsers/ai-response.js';
