@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Get Your Repair Assessment | Magicman</title>
+    <meta name="description" content="Get an instant AI-powered assessment of your repair needs. Upload photos and receive professional analysis in minutes.">
+    
+    <!-- Form CSS -->
+    <link rel="stylesheet" href="form/marv-form.css">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px 0;
+        }
+        
+        .page-header {
+            text-align: center;
+            padding: 40px 20px 20px;
+            color: white;
+        }
+        
+        .page-header h1 {
+            font-size: 42px;
+            font-weight: 700;
+            margin-bottom: 12px;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+        
+        .page-header p {
+            font-size: 20px;
+            opacity: 0.95;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: white;
+            text-decoration: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            transition: all 0.2s;
+            margin: 0 auto 20px;
+            max-width: 800px;
+        }
+        
+        .back-link:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+        
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+        
+        @media (max-width: 768px) {
+            body {
+                padding: 0;
+                background: white;
+            }
+            
+            .page-header {
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                padding: 30px 20px 20px;
+            }
+            
+            .page-header h1 {
+                font-size: 28px;
+            }
+            
+            .page-header p {
+                font-size: 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="page-header">
+            <a href="/" class="back-link">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="19" y1="12" x2="5" y2="12"></line>
+                    <polyline points="12 19 5 12 12 5"></polyline>
+                </svg>
+                Back to Home
+            </a>
+            <h1>Get Your Repair Assessment</h1>
+            <p>AI-powered damage analysis. Get instant results with pricing.</p>
+        </div>
+        
+        <!-- MARV Form Container -->
+        <div id="marv-form"></div>
+    </div>
+    
+    <!-- Load Form Module -->
+    <script src="form/dist/marv-form.bundle.js"></script>
+</body>
+</html>
