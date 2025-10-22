@@ -570,3 +570,148 @@
         font-size: 36px;
     }
 }
+/* ADD THESE STYLES TO form/marv-form.css */
+
+/* Customer Form Styles */
+.marv-customer-form {
+    background: white;
+    padding: 0;
+    border-radius: 12px;
+}
+
+.marv-customer-form .marv-form-row {
+    margin-bottom: 20px;
+}
+
+.marv-customer-form .marv-form-row:last-of-type {
+    margin-bottom: 0;
+}
+
+.marv-customer-form label {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 6px;
+}
+
+.marv-checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 400 !important;
+    cursor: pointer;
+}
+
+.marv-checkbox-label input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+}
+
+.marv-terms-link {
+    background: none;
+    border: none;
+    color: #3b82f6;
+    text-decoration: underline;
+    cursor: pointer;
+    padding: 0;
+    font-size: inherit;
+    font-weight: 600;
+}
+
+.marv-terms-link:hover {
+    color: #2563eb;
+}
+
+/* Confirmation Card */
+.marv-confirmation-card {
+    background: white;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+}
+
+.marv-confirmation-header {
+    text-align: center;
+    padding: 40px 24px 24px;
+    background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+    border-bottom: 2px solid #86efac;
+}
+
+.marv-confirmation-body {
+    padding: 24px;
+}
+
+.marv-confirmation-section {
+    margin-bottom: 24px;
+}
+
+.marv-confirmation-section:last-child {
+    margin-bottom: 0;
+}
+
+.marv-confirmation-section h4 {
+    margin: 0 0 12px 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #1f2937;
+}
+
+.marv-confirmation-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 24px;
+}
+
+.marv-detail-row {
+    display: flex;
+    padding: 10px 0;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.marv-detail-row:last-child {
+    border-bottom: none;
+}
+
+.marv-detail-label {
+    font-weight: 600;
+    color: #6b7280;
+    min-width: 140px;
+    font-size: 13px;
+}
+
+.marv-detail-value {
+    color: #374151;
+    flex: 1;
+    font-size: 13px;
+}
+
+/* Update responsive styles */
+@media (max-width: 768px) {
+    .marv-confirmation-header {
+        padding: 24px 16px 16px;
+    }
+    
+    .marv-confirmation-body {
+        padding: 16px;
+    }
+    
+    .marv-confirmation-actions {
+        grid-template-columns: 1fr;
+    }
+    
+    .marv-detail-row {
+        flex-direction: column;
+        gap: 4px;
+    }
+    
+    .marv-detail-label {
+        min-width: auto;
+    }
+}
+
+
+
+
