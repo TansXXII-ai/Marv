@@ -1,0 +1,15 @@
+json
+{
+  "name": "marv-form",
+  "version": "1.0.0",
+  "description": "MARV Web Form Module",
+  "type": "module",
+  "scripts": {
+    "build": "esbuild marv-form.js --bundle --outfile=dist/marv-form.bundle.js --format=iife --minify",
+    "dev": "esbuild marv-form.js --bundle --outfile=dist/marv-form.bundle.js --format=iife --watch",
+    "build:dev": "esbuild marv-form.js --bundle --outfile=dist/marv-form.bundle.js --format=iife"
+  },
+  "devDependencies": {
+    "esbuild": "^0.19.0"
+  }
+}
