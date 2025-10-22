@@ -1,6 +1,6 @@
 // Step 4: Validation confirmation - Chat style with editable fields
 import { validatedData, updateValidatedData } from '../core/state.js';
-import { MATERIAL_OPTIONS, DAMAGE_OPTIONS } from '../core/config.js';
+import { MATERIAL_OPTIONS, DAMAGE_OPTIONS } from '../../shared/config.js';
 import { showStep } from './step-router.js';
 import { addBotMessage, addBotMessageWithContent, addInputArea, removeLastInputArea, showTypingIndicator, hideTypingIndicator, showAnalysisLoader } from '../utils/chat-helpers.js';
 import { callTriageAPI } from '../utils/api.js';
