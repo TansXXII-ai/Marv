@@ -274,7 +274,12 @@ class MARVForm {
         this.showLoader('Analyzing your photos...');
         
         try {
+            console.log('Starting image analysis...');
             const result = await callValidateAPI(this.formData);
+            console.log('Validation result:', result);
+            
+            // CRITICAL: Hide loader immediately after getting response
+            this.hideLoader();
             
             if (result && result.validation) {
                 this.validatedData = {
@@ -286,12 +291,14 @@ class MARVForm {
                     additionalNotes: '',
                     imageCount: this.formData.images.length
                 };
+                console.log('Going to step 3 with validated data:', this.validatedData);
                 this.goToStep(3);
             } else {
                 throw new Error('Invalid response from validation API');
             }
         } catch (error) {
             console.error('Validation error:', error);
+            // CRITICAL: Always hide loader in catch block
             this.hideLoader();
             alert('Failed to analyze images. Please try again.');
         }
@@ -377,21 +384,26 @@ class MARVForm {
         this.showLoader('Analyzing repair feasibility...');
         
         try {
+            console.log('Starting triage analysis...');
             const combinedData = {
                 ...this.formData,
                 ...this.validatedData
             };
             
             const result = await callTriageAPI(combinedData);
+            console.log('Triage result:', result);
+            
+            // CRITICAL: Hide loader immediately after getting response
+            this.hideLoader();
             
             if (result && result.ok) {
-                this.hideLoader();
                 this.showResults(result);
             } else {
                 throw new Error('Invalid response from triage API');
             }
         } catch (error) {
             console.error('Triage error:', error);
+            // CRITICAL: Always hide loader in catch block
             this.hideLoader();
             alert('Failed to get repair analysis. Please try again.');
         }
@@ -516,6 +528,13 @@ class MARVForm {
     }
     
     showLoader(message) {
+        console.log('Showing loader:', message);
+        // Remove any existing loader first
+        const existingLoader = document.getElementById('marvFormLoader');
+        if (existingLoader) {
+            existingLoader.remove();
+        }
+        
         const overlay = document.createElement('div');
         overlay.id = 'marvFormLoader';
         overlay.className = 'marv-form-loader-overlay';
@@ -525,15 +544,23 @@ class MARVForm {
                 <p>${message}</p>
             </div>
         `;
-        this.container.appendChild(overlay);
+        document.body.appendChild(overlay);
+        console.log('Loader shown');
     }
     
     hideLoader() {
+        console.log('Hiding loader...');
         const loader = document.getElementById('marvFormLoader');
-        if (loader) loader.remove();
+        if (loader) {
+            loader.remove();
+            console.log('Loader removed');
+        } else {
+            console.log('No loader found to remove');
+        }
     }
     
     goToStep(step) {
+        console.log('Going to step:', step);
         this.currentStep = step;
         this.updateProgressBar();
         
