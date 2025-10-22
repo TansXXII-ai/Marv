@@ -1,7 +1,7 @@
 // MARV Form Module - Traditional Web Form with AI
 // This can run alongside the chatbot on the same page
 
-import { CONFIG } from './shared/config.js';
+import { CONFIG } from '../shared/config.js';
 import { callValidateAPI, callTriageAPI } from './shared/api.js';
 import { parseAIResponse } from './shared/parsers/ai-response.js';
 
