@@ -59,24 +59,53 @@
             margin-right: auto;
         }
 
-        .cta-button {
-            display: inline-block;
-            padding: 18px 40px;
-            background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
-            color: white;
-            text-decoration: none;
-            border-radius: 50px;
-            font-size: 18px;
-            font-weight: 600;
-            transition: transform 0.2s, box-shadow 0.2s;
-            border: none;
-            cursor: pointer;
-            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
+        /* CTA Buttons Container */
+        .cta-buttons {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-bottom: 50px;
         }
 
-        .cta-button:hover {
+        .cta-button {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 18px 36px;
+            border-radius: 12px;
+            font-size: 18px;
+            font-weight: 600;
+            transition: all 0.3s;
+            border: none;
+            cursor: pointer;
+            text-decoration: none;
+            font-family: inherit;
+        }
+
+        .cta-button-primary {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);
+        }
+
+        .cta-button-primary:hover {
             transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(59, 130, 246, 0.6);
+            box-shadow: 0 6px 20px rgba(16, 185, 129, 0.6);
+        }
+
+        .cta-button-secondary {
+            background: white;
+            color: #3b82f6;
+            border: 2px solid #3b82f6;
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.2);
+        }
+
+        .cta-button-secondary:hover {
+            background: #eff6ff;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(59, 130, 246, 0.3);
         }
 
         .features {
@@ -108,9 +137,68 @@
             line-height: 1.5;
         }
 
-        /* Hide widget initially */
-        #marv-widget {
-            display: none;
+        /* Divider */
+        .divider {
+            margin: 40px 0;
+            text-align: center;
+            position: relative;
+        }
+
+        .divider::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: #e5e7eb;
+        }
+
+        .divider-text {
+            position: relative;
+            background: white;
+            padding: 0 20px;
+            color: #9ca3af;
+            font-size: 14px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .hero-section {
+                padding: 40px 24px;
+            }
+
+            .hero-section h1 {
+                font-size: 36px;
+            }
+
+            .hero-section .subtitle {
+                font-size: 18px;
+            }
+
+            .hero-section .description {
+                font-size: 16px;
+            }
+
+            .cta-buttons {
+                flex-direction: column;
+                gap: 12px;
+            }
+
+            .cta-button {
+                width: 100%;
+                justify-content: center;
+                padding: 16px 24px;
+                font-size: 16px;
+            }
+
+            .features {
+                grid-template-columns: 1fr;
+                gap: 40px;
+            }
         }
     </style>
 </head>
@@ -120,21 +208,46 @@
             <h1>Marv</h1>
             <p class="subtitle">Magicman Automated Repair Validator</p>
             <p class="description">
-                AI-powered damage assessments for your surfaces. Simply describe the damage, 
-                upload photos, and receive a professional repair estimate in seconds.
+                AI-powered damage assessments for your surfaces. Get professional repair 
+                recommendations and instant pricing in seconds.
             </p>
-            <button class="cta-button" onclick="openWidget()">Try the Widget →</button>
+
+            <!-- Call to Action Buttons -->
+            <div class="cta-buttons">
+                <!-- Primary CTA - Full Assessment Form -->
+                <a href="/assessment-form.html" class="cta-button cta-button-primary">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <line x1="12" y1="18" x2="12" y2="12"></line>
+                        <line x1="9" y1="15" x2="15" y2="15"></line>
+                    </svg>
+                    Get Full Assessment
+                </a>
+
+                <!-- Secondary CTA - Quick Chat -->
+                <button class="cta-button cta-button-secondary" onclick="openWidget()">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                    </svg>
+                    Quick Chat Assessment
+                </button>
+            </div>
+
+            <div class="divider">
+                <span class="divider-text">Or</span>
+            </div>
 
             <div class="features">
                 <div class="feature">
-                    <div class="feature-icon">⚡</div>
+                    <div class="feature-icon">🤖</div>
                     <h3>AI Powered</h3>
-                    <p>Machine learning for accurate assessments</p>
+                    <p>Advanced machine learning analyzes your damage</p>
                 </div>
                 <div class="feature">
                     <div class="feature-icon">⚡</div>
                     <h3>Instant Results</h3>
-                    <p>Get your estimate in seconds, not days</p>
+                    <p>Get your estimate with pricing in seconds</p>
                 </div>
                 <div class="feature">
                     <div class="feature-icon">📸</div>
