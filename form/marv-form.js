@@ -15,7 +15,14 @@ class MARVForm {
         this.formData = {
             name: '',
             description: '',
-            images: []
+            images: [],
+            // Customer details
+            fullName: '',
+            address: '',
+            postcode: '',
+            phone: '',
+            email: '',
+            timing: ''
         };
         
         this.validatedData = {};
@@ -35,7 +42,7 @@ class MARVForm {
                 <div class="marv-form-progress">
                     <div class="marv-progress-step active" data-step="1">
                         <div class="marv-step-number">1</div>
-                        <div class="marv-step-label">Your Details</div>
+                        <div class="marv-step-label">Details</div>
                     </div>
                     <div class="marv-progress-line"></div>
                     <div class="marv-progress-step" data-step="2">
@@ -51,6 +58,16 @@ class MARVForm {
                     <div class="marv-progress-step" data-step="4">
                         <div class="marv-step-number">4</div>
                         <div class="marv-step-label">Results</div>
+                    </div>
+                    <div class="marv-progress-line"></div>
+                    <div class="marv-progress-step" data-step="5">
+                        <div class="marv-step-number">5</div>
+                        <div class="marv-step-label">Contact</div>
+                    </div>
+                    <div class="marv-progress-line"></div>
+                    <div class="marv-progress-step" data-step="6">
+                        <div class="marv-step-number">6</div>
+                        <div class="marv-step-label">Done</div>
                     </div>
                 </div>
                 
@@ -466,11 +483,286 @@ class MARVForm {
         });
         
         document.getElementById('contactBtn').addEventListener('click', () => {
-            // Navigate to customer details or booking page
-            window.location.href = '/booking?ref=' + Date.now();
+            this.goToStep(5); // Go to customer details form
         });
         
         this.goToStep(4);
+    }
+    
+    
+    renderStep5() {
+        return `
+            <div class="marv-form-step">
+                <h3>Your Contact Details</h3>
+                <p class="marv-form-intro">To complete your booking, please provide your contact information</p>
+                
+                <div class="marv-customer-form">
+                    <div class="marv-form-row">
+                        <div class="marv-form-field">
+                            <label for="fullNameInput">Full Name *</label>
+                            <input type="text" id="fullNameInput" class="marv-input" placeholder="John Smith" value="${this.formData.fullName || this.formData.name || ''}" required>
+                        </div>
+                    </div>
+                    
+                    <div class="marv-form-row">
+                        <div class="marv-form-field">
+                            <label for="addressInput">Address *</label>
+                            <textarea id="addressInput" class="marv-textarea" rows="2" placeholder="123 High Street, London" required>${this.formData.address || ''}</textarea>
+                        </div>
+                    </div>
+                    
+                    <div class="marv-form-row">
+                        <div class="marv-form-field">
+                            <label for="postcodeInput">Postcode *</label>
+                            <input type="text" id="postcodeInput" class="marv-input" placeholder="SW1A 1AA" value="${this.formData.postcode || ''}" required>
+                        </div>
+                    </div>
+                    
+                    <div class="marv-form-row">
+                        <div class="marv-form-field">
+                            <label for="phoneInput">Contact Telephone Number *</label>
+                            <input type="tel" id="phoneInput" class="marv-input" placeholder="07123 456789" value="${this.formData.phone || ''}" required>
+                        </div>
+                    </div>
+                    
+                    <div class="marv-form-row">
+                        <div class="marv-form-field">
+                            <label for="emailInput">Email Address *</label>
+                            <input type="email" id="emailInput" class="marv-input" placeholder="john@example.com" value="${this.formData.email || ''}" required>
+                        </div>
+                    </div>
+                    
+                    <div class="marv-form-row">
+                        <div class="marv-form-field">
+                            <label for="timingSelect">When do you need this fixed? *</label>
+                            <select id="timingSelect" class="marv-select" required>
+                                <option value="">Please select...</option>
+                                <option value="next_5_days" ${this.formData.timing === 'next_5_days' ? 'selected' : ''}>Next 5 working days</option>
+                                <option value="next_2_weeks" ${this.formData.timing === 'next_2_weeks' ? 'selected' : ''}>In the next 2 weeks</option>
+                                <option value="next_month" ${this.formData.timing === 'next_month' ? 'selected' : ''}>In the next month</option>
+                                <option value="flexible" ${this.formData.timing === 'flexible' ? 'selected' : ''}>Completely flexible</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="marv-form-row" style="margin-top: 16px;">
+                        <div class="marv-form-field">
+                            <label class="marv-checkbox-label">
+                                <input type="checkbox" id="termsCheckbox" required>
+                                <span>I accept the <button type="button" id="termsLinkBtn" class="marv-terms-link">Terms & Conditions</button> *</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="marv-form-actions">
+                    <button type="button" class="marv-form-btn marv-form-btn-secondary" id="backBtn">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="19" y1="12" x2="5" y2="12"></line>
+                            <polyline points="12 19 5 12 12 5"></polyline>
+                        </svg>
+                        Back
+                    </button>
+                    <button type="button" class="marv-form-btn marv-form-btn-primary" id="submitBookingBtn">
+                        Submit Booking
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        `;
+    }
+    
+    attachStep5Listeners() {
+        const fullNameInput = document.getElementById('fullNameInput');
+        const addressInput = document.getElementById('addressInput');
+        const postcodeInput = document.getElementById('postcodeInput');
+        const phoneInput = document.getElementById('phoneInput');
+        const emailInput = document.getElementById('emailInput');
+        const timingSelect = document.getElementById('timingSelect');
+        const termsCheckbox = document.getElementById('termsCheckbox');
+        const termsLinkBtn = document.getElementById('termsLinkBtn');
+        const backBtn = document.getElementById('backBtn');
+        const submitBtn = document.getElementById('submitBookingBtn');
+
+        if (termsLinkBtn) {
+            termsLinkBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                window.open('https://www.magicman.co.uk/terms-conditions', '_blank');
+            });
+        }
+
+        if (backBtn) {
+            backBtn.addEventListener('click', () => this.goToStep(4));
+        }
+
+        if (submitBtn) {
+            submitBtn.addEventListener('click', () => {
+                // Validate all required fields
+                const fullName = fullNameInput?.value.trim();
+                const address = addressInput?.value.trim();
+                const postcode = postcodeInput?.value.trim();
+                const phone = phoneInput?.value.trim();
+                const email = emailInput?.value.trim();
+                const timing = timingSelect?.value;
+                const termsAccepted = termsCheckbox?.checked;
+
+                if (!fullName) {
+                    alert('Please enter your full name');
+                    fullNameInput?.focus();
+                    return;
+                }
+
+                if (!address) {
+                    alert('Please enter your address');
+                    addressInput?.focus();
+                    return;
+                }
+
+                if (!postcode) {
+                    alert('Please enter your postcode');
+                    postcodeInput?.focus();
+                    return;
+                }
+
+                if (!phone) {
+                    alert('Please enter your contact telephone number');
+                    phoneInput?.focus();
+                    return;
+                }
+
+                if (!email || !this.validateEmail(email)) {
+                    alert('Please enter a valid email address');
+                    emailInput?.focus();
+                    return;
+                }
+
+                if (!timing) {
+                    alert('Please select when you need the repair');
+                    timingSelect?.focus();
+                    return;
+                }
+
+                if (!termsAccepted) {
+                    alert('Please accept the Terms & Conditions to proceed');
+                    return;
+                }
+
+                // Save customer details
+                this.formData.fullName = fullName;
+                this.formData.address = address;
+                this.formData.postcode = postcode;
+                this.formData.phone = phone;
+                this.formData.email = email;
+                this.formData.timing = timing;
+
+                // Show confirmation
+                this.goToStep(6);
+            });
+        }
+    }
+    
+    renderStep6() {
+        const timingLabels = {
+            'next_5_days': 'Next 5 working days',
+            'next_2_weeks': 'In the next 2 weeks',
+            'next_month': 'In the next month',
+            'flexible': 'Completely flexible'
+        };
+
+        return `
+            <div class="marv-form-step">
+                <div class="marv-confirmation-card">
+                    <div class="marv-confirmation-header">
+                        <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: #10b981;">
+                            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                            <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                        </svg>
+                        <h2 style="margin: 16px 0 8px 0; color: #1f2937; font-size: 28px;">Booking Submitted!</h2>
+                        <p style="margin: 0; color: #6b7280; font-size: 16px;">Reference: MRV-${Date.now().toString().slice(-8)}</p>
+                    </div>
+                    
+                    <div class="marv-confirmation-body">
+                        <div class="marv-confirmation-section">
+                            <h4>📋 Booking Summary</h4>
+                            <div class="marv-detail-row">
+                                <span class="marv-detail-label">Name:</span>
+                                <span class="marv-detail-value">${this.formData.fullName || this.formData.name}</span>
+                            </div>
+                            <div class="marv-detail-row">
+                                <span class="marv-detail-label">Address:</span>
+                                <span class="marv-detail-value">${this.formData.address}</span>
+                            </div>
+                            <div class="marv-detail-row">
+                                <span class="marv-detail-label">Postcode:</span>
+                                <span class="marv-detail-value">${this.formData.postcode}</span>
+                            </div>
+                            <div class="marv-detail-row">
+                                <span class="marv-detail-label">Phone:</span>
+                                <span class="marv-detail-value">${this.formData.phone}</span>
+                            </div>
+                            <div class="marv-detail-row">
+                                <span class="marv-detail-label">Email:</span>
+                                <span class="marv-detail-value">${this.formData.email}</span>
+                            </div>
+                            <div class="marv-detail-row">
+                                <span class="marv-detail-label">Timing:</span>
+                                <span class="marv-detail-value">${timingLabels[this.formData.timing] || this.formData.timing}</span>
+                            </div>
+                        </div>
+                        
+                        <div class="marv-confirmation-section">
+                            <h4>📧 What Happens Next?</h4>
+                            <ol style="margin: 0; padding-left: 20px; color: #4b5563; line-height: 1.8;">
+                                <li>You'll receive a confirmation email shortly</li>
+                                <li>A Magicman technician will contact you within 24 hours</li>
+                                <li>We'll schedule a convenient appointment time</li>
+                                <li>Our expert will arrive and complete the repair</li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="marv-form-actions">
+                    <button type="button" class="marv-form-btn marv-form-btn-secondary" id="newAssessmentBtn">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="1 4 1 10 7 10"></polyline>
+                            <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+                        </svg>
+                        New Assessment
+                    </button>
+                    <button type="button" class="marv-form-btn marv-form-btn-primary" id="closeBtn">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                        Close
+                    </button>
+                </div>
+            </div>
+        `;
+    }
+    
+    attachStep6Listeners() {
+        const newAssessmentBtn = document.getElementById('newAssessmentBtn');
+        const closeBtn = document.getElementById('closeBtn');
+
+        if (newAssessmentBtn) {
+            newAssessmentBtn.addEventListener('click', () => {
+                this.reset();
+            });
+        }
+
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => {
+                window.location.href = '/';
+            });
+        }
+    }
+    
+    validateEmail(email) {
+        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
     }
     
     // Helper methods
@@ -582,6 +874,14 @@ class MARVForm {
             case 4:
                 // Results already rendered
                 break;
+            case 5:
+                bodyEl.innerHTML = this.renderStep5();
+                this.attachStep5Listeners();
+                break;
+            case 6:
+                bodyEl.innerHTML = this.renderStep6();
+                this.attachStep6Listeners();
+                break;
         }
         
         bodyEl.scrollTop = 0;
@@ -606,7 +906,13 @@ class MARVForm {
         this.formData = {
             name: '',
             description: '',
-            images: []
+            images: [],
+            fullName: '',
+            address: '',
+            postcode: '',
+            phone: '',
+            email: '',
+            timing: ''
         };
         this.validatedData = {};
         this.goToStep(1);
