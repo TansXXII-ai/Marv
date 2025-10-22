@@ -1,4 +1,4 @@
-# MARV - Magicman AI Damage Assessment Widget
+# MARV - Magicman AI Damage Assessment Widget and Form
 
 An AI-powered damage assessment widget that allows customers to submit photos and receive instant repair feasibility analysis using Azure OpenAI's vision capabilities.
 
