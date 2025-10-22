@@ -1,7 +1,7 @@
 // Step 5: Results display - Condensed with pricing
-import { validatedData, resetState, widgetContainer } from '../../shared/config.js';
+import { validatedData, resetState, widgetContainer } from '../core/state.js';
 import { getDecisionColor, getDecisionLabel } from '../utils/helpers.js';
-import { getJobDuration, getPrice } from '../core/config.js';
+import { getJobDuration, getPrice } from '../../shared/config.js';
 import { parseAIResponse } from '../parsers/ai-response.js';
 import { showStep } from './step-router.js';
 import { addBotMessage, addBotMessageWithContent, showTypingIndicator, hideTypingIndicator } from '../utils/chat-helpers.js';
